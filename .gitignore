@@ -1,0 +1,26 @@
+# Build
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.parquet
+*.csv
+
+# Secrets
+.env
