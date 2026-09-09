@@ -2,6 +2,7 @@
 
 #include <types.hpp>
 #include <price_level.hpp>
+#include <trade.hpp>
 #include <vector>
 
 
@@ -18,4 +19,8 @@ struct OrderBook {
     Price best_ask(); 
 
     float spread();
+
+    std::vector<Trade> process_order(Order &order);
+
+    void sort_price_levels();
 };

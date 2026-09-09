@@ -1,7 +1,10 @@
 #include <order.hpp>
 #include <order_book.hpp>
 #include <types.hpp>
+#include <trade.hpp>
 #include <vector>
+#include <iostream>
+#include <algorithm>
 
 void OrderBook::add(const Order& order) {
     if (order.side == Side::BUY) {
@@ -101,3 +104,181 @@ float OrderBook::spread() {
 
     return best_ask - best_bid;
 }
+
+void OrderBook::sort_price_levels() {
+    std::sort(this->asks.begin(), this->asks.end(),
+    [](const PriceLevel& a, const PriceLevel& b) {
+            return a.price < b.price;
+    });
+
+    std::sort(this->bids.begin(), this->bids.end(),
+    [](const PriceLevel& a, const PriceLevel& b) {
+            return a.price > b.price;
+    });
+}
+
+std::vector<Trade> OrderBook::process_order(Order &order) {
+    this->sort_price_levels();
+    std::vector<Trade> trades;
+    
+    if (order.side == Side::BUY) {
+
+        size_t i = 0;
+
+        while (i < (this->asks).size()) {
+
+            PriceLevel* cur_pl = &this->asks[i];
+            
+            if (order.price < cur_pl->price) {
+                this->add(order);
+                return trades;
+            }
+            
+            size_t initial_size = this->asks.size();
+
+            size_t j = 0;
+
+            while (j < (cur_pl->orders).size()) {
+                
+                Order* cur_or = &cur_pl->orders[j];
+                
+                if (order.quantity <= cur_or->quantity) {
+                    
+                    cur_or->quantity -= order.quantity;
+                    cur_pl->total_quantity -= order.quantity;
+                    
+                    Trade trade = {
+                        order.id, 
+                        cur_or->id, 
+                        cur_or->price, 
+                        order.quantity
+                    };
+                    
+                    trades.push_back(trade);
+                    
+                    order.quantity = 0; 
+
+                    if (cur_or->quantity == 0) {
+                        cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    }
+
+                    if (cur_pl->orders.empty()) {
+                        this->asks.erase(this->asks.begin() + i);
+                    }
+                    
+                    return trades;
+                }
+
+                else if (order.quantity > cur_or->quantity) {
+
+                    order.quantity -= cur_or->quantity;
+                    cur_pl->total_quantity -= cur_or->quantity;
+
+                    Trade trade = {
+                        order.id, 
+                        cur_or->id, 
+                        cur_or->price, 
+                        cur_or->quantity
+                    };
+
+                    trades.push_back(trade);
+                    
+                    cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    
+                    if (cur_pl->orders.empty()) {
+                        this->asks.erase(this->asks.begin() + i);
+                        break;
+                    }
+
+                }
+            }
+            if (this->asks.size() == initial_size) {
+                i++;
+            }
+        }
+        this->add(order);
+        return trades;
+    }
+
+    else if (order.side == Side::SELL) {
+
+        size_t i = 0;
+
+        while (i < (this->bids).size()) {
+
+            PriceLevel* cur_pl = &this->bids[i];
+            
+            if (order.price > cur_pl->price) {
+                this->add(order);
+                return trades;
+            }
+            
+            size_t initial_size = this->bids.size();
+
+            size_t j = 0;
+
+            while (j < (cur_pl->orders).size()) {
+                
+                Order* cur_or = &cur_pl->orders[j];
+                
+                if (order.quantity <= cur_or->quantity) {
+            
+                    cur_or->quantity -= order.quantity;
+                    cur_pl->total_quantity -= order.quantity;
+                    
+                    
+                    Trade trade = {
+                        order.id, 
+                        cur_or->id, 
+                        cur_or->price, 
+                        order.quantity
+                    };
+                    
+                    trades.push_back(trade);
+                    
+                    order.quantity = 0;
+                    
+                    if (cur_or->quantity == 0) {
+                        cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    }
+
+                    if (cur_pl->orders.empty()) {
+                        this->bids.erase(this->bids.begin() + i);
+                    }
+                    
+                    return trades;
+                }
+
+                else if (order.quantity > cur_or->quantity) {
+
+                    order.quantity -= cur_or->quantity;
+                    cur_pl->total_quantity -= cur_or->quantity;
+
+                    Trade trade = {
+                        order.id, 
+                        cur_or->id, 
+                        cur_or->price, 
+                        cur_or->quantity
+                    };
+
+                    trades.push_back(trade);
+
+                    cur_pl->orders.erase(cur_pl->orders.begin() + j);
+
+                    if (cur_pl->orders.empty()) {
+                        this->bids.erase(this->bids.begin() + i);
+                        break;
+                    }
+
+                }
+            }
+            if (this->bids.size() == initial_size) {
+                i++;
+            }
+        }
+        this->add(order);
+        return trades;
+    }
+    else {return trades;}
+}
+
