@@ -5,13 +5,19 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <order_map.hpp>
 
 void OrderBook::add(const Order& order) {
     if (order.side == Side::BUY) {
         for (size_t i = 0, len = (this->bids).size(); i < len; i++) {
             if (order.price == this->bids[i].price) {
+                OrderLocation location = {Side::BUY, order.price, (this->bids[i].orders).size()}; 
+                
                 this->bids[i].total_quantity += order.quantity;
                 this->bids[i].orders.push_back(order);
+                
+                this->order_map.add(order.id, location);
+                
                 return;
             }
         }
@@ -21,14 +27,22 @@ void OrderBook::add(const Order& order) {
         new_price_level.total_quantity = order.quantity;
         new_price_level.orders.push_back(order);
 
+        OrderLocation location = {Side::BUY, new_price_level.price, 0};
+
+        this->order_map.add(order.id, location);
         this->bids.push_back(new_price_level);
     }
-
+    
     else if (order.side == Side::SELL) {
         for (size_t i = 0, len = (this->asks).size(); i < len; i++) {
             if (order.price == this->asks[i].price) {
+                OrderLocation location = {Side::SELL, order.price, (this->asks[i].orders).size()}; 
+
                 this->asks[i].total_quantity += order.quantity;
                 this->asks[i].orders.push_back(order);
+                
+                this->order_map.add(order.id, location);
+                
                 return;
             }
         }
@@ -38,41 +52,131 @@ void OrderBook::add(const Order& order) {
         new_price_level.total_quantity = order.quantity;
         new_price_level.orders.push_back(order);
 
+        OrderLocation location = {Side::SELL, new_price_level.price, 0};
+
+        this->order_map.add(order.id, location);
         this->asks.push_back(new_price_level);
     }
 
-    else {return ;}
+    else {
+        return ;
+    }
 }
 
 void OrderBook::cancel(OrderId order_id) {
-    for (size_t i = 0, len = (this->bids).size(); i < len; i++) {
-        PriceLevel* curr_PL = &this->bids[i];
-        for (size_t j = 0, PL_len = (curr_PL->orders).size(); j < PL_len; j++) {
-            Order* curr_order = &this->bids[i].orders[j];
-            if (order_id == curr_order->id) {
-                curr_PL->total_quantity -= curr_order->quantity;
-                curr_PL->orders.erase(curr_PL->orders.begin() + j);
-                if (curr_PL->total_quantity == 0) {
+
+    std::optional<OrderLocation> location = this->order_map.find(order_id);
+
+    if (!location.has_value()) {
+        return ;
+    }
+    
+    if (location->side == Side::BUY) {
+        for (size_t i = 0; i < this->bids.size(); i++) {
+            
+            PriceLevel* cur_pl = &this->bids[i];
+
+            if (cur_pl->price == location->price) {
+
+                cur_pl->total_quantity -= cur_pl->orders[location->index].quantity;
+
+                cur_pl->orders.erase(cur_pl->orders.begin() + location->index);
+
+                this->order_map.remove(order_id);
+
+                this->update_shifted_indices(location->side, location->price, location->index);
+                
+                if (cur_pl->orders.empty()) {
                     this->bids.erase(this->bids.begin() + i);
-                } 
-                return;
+                }
+                
+                return ;
+            }
+        }
+    }
+    
+    else if (location->side == Side::SELL) {
+        for (size_t i = 0; i < this->asks.size(); i++) {
+            
+            PriceLevel* cur_pl = &this->asks[i];
+            
+            if (cur_pl->price == location->price) {
+                
+                cur_pl->total_quantity -= cur_pl->orders[location->index].quantity;
+                
+                cur_pl->orders.erase(cur_pl->orders.begin() + location->index);
+                
+                this->order_map.remove(order_id);
+
+                this->update_shifted_indices(location->side, location->price, location->index);
+                
+                if (cur_pl->orders.empty()) {
+                    this->asks.erase(this->asks.begin() + i);
+                }
+                
+                return ;
             }
         }
     }
 
-    for (size_t i = 0, len = (this->asks).size(); i < len; i++) {
-        PriceLevel* curr_PL = &this->asks[i];
-        for (size_t j = 0, PL_len = (curr_PL->orders).size(); j < PL_len; j++) {
-            Order* curr_order = &this->asks[i].orders[j];
-            if (order_id == curr_order->id) {
-                curr_PL->total_quantity -= curr_order->quantity;
-                curr_PL->orders.erase(curr_PL->orders.begin() + j);
-                if (curr_PL->total_quantity == 0) {
-                    this->asks.erase(this->asks.begin() + i);
-                } 
-                return;
+    else {
+        return ;
+    }
+}
+
+void OrderBook::update_shifted_indices(Side side, Price price, std::size_t erased_index){
+    if (side == Side::BUY) {
+        for (size_t i = 0; i < this->bids.size(); i++) {
+
+            PriceLevel& cur_pl = this->bids[i];
+
+            if (cur_pl.price == price) {
+                for (size_t j = 0; j < cur_pl.orders.size(); j++) {
+
+                    Order& cur_or = cur_pl.orders[j];
+
+                    if (j >= erased_index) {
+                        std::optional<OrderLocation> location = this->order_map.find(cur_or.id);
+                        OrderLocation new_location = location.value();
+                        
+                        new_location.index -= 1;
+                    
+                        this->order_map.update(cur_or.id, new_location);
+                    }
+                }
+                
+                return ;
             }
         }
+    }
+    
+    else if (side == Side::SELL) {
+        for (size_t i = 0; i < this->asks.size(); i++) {
+            
+            PriceLevel& cur_pl = this->asks[i];
+            
+            if (cur_pl.price == price) {
+                for (size_t j = 0; j < cur_pl.orders.size(); j++) {
+                    
+                    Order& cur_or = cur_pl.orders[j];
+                    
+                    if (j >= erased_index) {
+                        std::optional<OrderLocation> location = this->order_map.find(cur_or.id);
+                        OrderLocation new_location = location.value();
+                        
+                        new_location.index -= 1;
+                        
+                        this->order_map.update(cur_or.id, new_location);
+                    }
+                }
+
+                return ;
+            }
+        }
+    }
+
+    else { 
+        return ;
     }
 }
 
@@ -143,36 +247,33 @@ std::vector<Trade> OrderBook::process_order(Order &order) {
                 Order* cur_or = &cur_pl->orders[j];
                 
                 if (order.quantity <= cur_or->quantity) {
-                    
-                    cur_or->quantity -= order.quantity;
-                    cur_pl->total_quantity -= order.quantity;
-                    
+
                     Trade trade = {
-                        order.id, 
-                        cur_or->id, 
-                        cur_or->price, 
+                        order.id,
+                        cur_or->id,
+                        cur_or->price,
                         order.quantity
                     };
-                    
+
                     trades.push_back(trade);
-                    
-                    order.quantity = 0; 
 
-                    if (cur_or->quantity == 0) {
-                        cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    if (order.quantity == cur_or->quantity) {
+                        OrderId resting_id = cur_or->id;
+                        order.quantity = 0;
+
+                        this->cancel(resting_id);
                     }
 
-                    if (cur_pl->orders.empty()) {
-                        this->asks.erase(this->asks.begin() + i);
+                    else {
+                        cur_or->quantity -= order.quantity;
+                        cur_pl->total_quantity -= order.quantity;
+                        order.quantity = 0;
                     }
-                    
+
                     return trades;
                 }
 
                 else if (order.quantity > cur_or->quantity) {
-
-                    order.quantity -= cur_or->quantity;
-                    cur_pl->total_quantity -= cur_or->quantity;
 
                     Trade trade = {
                         order.id, 
@@ -183,10 +284,13 @@ std::vector<Trade> OrderBook::process_order(Order &order) {
 
                     trades.push_back(trade);
                     
-                    cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    order.quantity -= cur_or->quantity;
+
+                    bool level_empty = (cur_pl->orders.size() == 1);
+
+                    this->cancel(cur_or->id);
                     
-                    if (cur_pl->orders.empty()) {
-                        this->asks.erase(this->asks.begin() + i);
+                    if (level_empty) {
                         break;
                     }
 
@@ -222,37 +326,33 @@ std::vector<Trade> OrderBook::process_order(Order &order) {
                 Order* cur_or = &cur_pl->orders[j];
                 
                 if (order.quantity <= cur_or->quantity) {
-            
-                    cur_or->quantity -= order.quantity;
-                    cur_pl->total_quantity -= order.quantity;
-                    
-                    
+
                     Trade trade = {
-                        order.id, 
-                        cur_or->id, 
-                        cur_or->price, 
+                        order.id,
+                        cur_or->id,
+                        cur_or->price,
                         order.quantity
                     };
-                    
+
                     trades.push_back(trade);
-                    
-                    order.quantity = 0;
-                    
-                    if (cur_or->quantity == 0) {
-                        cur_pl->orders.erase(cur_pl->orders.begin() + j);
+
+                    if (order.quantity == cur_or->quantity) {
+                        OrderId resting_id = cur_or->id;
+                        order.quantity = 0;
+                        
+                        this->cancel(resting_id);
                     }
 
-                    if (cur_pl->orders.empty()) {
-                        this->bids.erase(this->bids.begin() + i);
+                    else {
+                        cur_or->quantity -= order.quantity;
+                        cur_pl->total_quantity -= order.quantity;
+                        order.quantity = 0;
                     }
-                    
+
                     return trades;
                 }
 
                 else if (order.quantity > cur_or->quantity) {
-
-                    order.quantity -= cur_or->quantity;
-                    cur_pl->total_quantity -= cur_or->quantity;
 
                     Trade trade = {
                         order.id, 
@@ -262,11 +362,14 @@ std::vector<Trade> OrderBook::process_order(Order &order) {
                     };
 
                     trades.push_back(trade);
+                    
+                    order.quantity -= cur_or->quantity;
 
-                    cur_pl->orders.erase(cur_pl->orders.begin() + j);
+                    bool level_empty = (cur_pl->orders.size() == 1);
 
-                    if (cur_pl->orders.empty()) {
-                        this->bids.erase(this->bids.begin() + i);
+                    this->cancel(cur_or->id);
+                    
+                    if (level_empty) {
                         break;
                     }
 
