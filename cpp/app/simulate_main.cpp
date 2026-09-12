@@ -2,9 +2,12 @@
 #include <order_book.hpp>
 #include <order.hpp>
 #include <trade.hpp>
+#include <simulator.hpp>
+#include <event.hpp>
 
 #include <iostream>
 #include <vector>
+#include <optional>
 
 int main() {
 
@@ -26,9 +29,14 @@ int main() {
 
     std::cout << "===== INITIAL BOOK =====\n";
 
-    std::cout << "Best Ask: " << book.best_ask() << '\n';
-    std::cout << "Best Bid: " << book.best_bid() << '\n';
-    std::cout << "Spread: " << book.spread() << '\n';
+    std::cout << "Best Ask: "
+              << book.best_ask() << '\n';
+
+    std::cout << "Best Bid: "
+              << book.best_bid() << '\n';
+
+    std::cout << "Spread: "
+              << book.spread() << '\n';
 
 
     // ------------------------------------------------------------
@@ -37,17 +45,25 @@ int main() {
 
     std::cout << "\n===== ORDER MAP LOOKUP =====\n";
 
-    std::optional<OrderLocation> location = book.order_map.find(2);
+    std::optional<OrderLocation> location =
+        book.order_map.find(2);
 
     if (location.has_value()) {
 
         std::cout
             << "Order 2 found\n"
-            << "Side: " << (location->side == Side::BUY ? "BUY" : "SELL") << '\n'
-            << "Price: " << location->price << '\n'
-            << "Index: " << location->index << '\n';
+            << "Side: "
+            << (location->side == Side::BUY ? "BUY" : "SELL")
+            << '\n'
+            << "Price: "
+            << location->price
+            << '\n'
+            << "Index: "
+            << location->index
+            << '\n';
     }
     else {
+
         std::cout << "Order 2 not found\n";
     }
 
@@ -63,14 +79,20 @@ int main() {
     location = book.order_map.find(2);
 
     if (!location.has_value()) {
-        std::cout << "Order 2 successfully removed from OrderMap\n";
+
+        std::cout
+            << "Order 2 successfully removed from OrderMap\n";
     }
     else {
-        std::cout << "ERROR: Order 2 still exists in OrderMap\n";
+
+        std::cout
+            << "ERROR: Order 2 still exists in OrderMap\n";
     }
 
-    std::cout << "Best Bid after cancellation: "
-              << book.best_bid() << '\n';
+    std::cout
+        << "Best Bid after cancellation: "
+        << book.best_bid()
+        << '\n';
 
 
     // ------------------------------------------------------------
@@ -85,11 +107,17 @@ int main() {
 
         std::cout
             << "Order 1 found after cancellation\n"
-            << "Price: " << location->price << '\n'
-            << "Index: " << location->index << '\n';
+            << "Price: "
+            << location->price
+            << '\n'
+            << "Index: "
+            << location->index
+            << '\n';
     }
     else {
-        std::cout << "ERROR: Order 1 missing from OrderMap\n";
+
+        std::cout
+            << "ERROR: Order 1 missing from OrderMap\n";
     }
 
 
@@ -107,10 +135,14 @@ int main() {
     for (const Trade& trade : buy_trades) {
 
         std::cout
-            << "Trade: Incoming Order " << trade.incoming_order
-            << " | Resting Order " << trade.resting_order
-            << " | Price " << trade.price
-            << " | Quantity " << trade.quantity
+            << "Trade: Incoming Order "
+            << trade.incoming_order
+            << " | Resting Order "
+            << trade.resting_order
+            << " | Price "
+            << trade.price
+            << " | Quantity "
+            << trade.quantity
             << '\n';
     }
 
@@ -147,11 +179,14 @@ int main() {
 
         std::cout
             << "Order 4 still exists\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
+
         std::cout
             << "Order 4 was fully filled and removed\n";
     }
@@ -162,11 +197,14 @@ int main() {
 
         std::cout
             << "Order 3 still exists\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
+
         std::cout
             << "ERROR: Order 3 missing from OrderMap\n";
     }
@@ -186,10 +224,14 @@ int main() {
     for (const Trade& trade : sell_trades) {
 
         std::cout
-            << "Trade: Incoming Order " << trade.incoming_order
-            << " | Resting Order " << trade.resting_order
-            << " | Price " << trade.price
-            << " | Quantity " << trade.quantity
+            << "Trade: Incoming Order "
+            << trade.incoming_order
+            << " | Resting Order "
+            << trade.resting_order
+            << " | Price "
+            << trade.price
+            << " | Quantity "
+            << trade.quantity
             << '\n';
     }
 
@@ -226,12 +268,16 @@ int main() {
 
         std::cout
             << "Order 1 exists\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
-        std::cout << "Order 1 does not exist\n";
+
+        std::cout
+            << "Order 1 does not exist\n";
     }
 
     location = book.order_map.find(3);
@@ -240,12 +286,16 @@ int main() {
 
         std::cout
             << "Order 3 exists\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
-        std::cout << "Order 3 does not exist\n";
+
+        std::cout
+            << "Order 3 does not exist\n";
     }
 
     location = book.order_map.find(5);
@@ -254,11 +304,14 @@ int main() {
 
         std::cout
             << "Order 5 exists in OrderMap\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
+
         std::cout
             << "Order 5 is not in OrderMap "
             << "(fully executed)\n";
@@ -270,115 +323,360 @@ int main() {
 
         std::cout
             << "Order 6 exists in OrderMap\n"
-            << "Price: " << location->price
-            << " | Index: " << location->index
+            << "Price: "
+            << location->price
+            << " | Index: "
+            << location->index
             << '\n';
     }
     else {
+
         std::cout
             << "Order 6 is not in OrderMap "
             << "(fully executed)\n";
     }
 
-    
+
     // ------------------------------------------------------------
     // 9. Order modification / replace
     // ------------------------------------------------------------
-    
+
     std::cout << "\n===== ORDER MODIFICATION =====\n";
-    
-    // Add two orders at the same price
+
     Order order7 = {7, Side::BUY, 9900, 100};
     Order order8 = {8, Side::BUY, 9900, 200};
-    
+
     book.add(order7);
     book.add(order8);
-    
+
     std::cout << "Before modification:\n";
-    
+
     location = book.order_map.find(7);
+
     if (location.has_value()) {
-        std::cout << "Order 7 -> Price: " << location->price
-                << " | Index: " << location->index << '\n';
+
+        std::cout
+            << "Order 7 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
     }
 
     location = book.order_map.find(8);
+
     if (location.has_value()) {
-        std::cout << "Order 8 -> Price: " << location->price
-                << " | Index: " << location->index << '\n';
-            }
+
+        std::cout
+            << "Order 8 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
+    }
+
 
     // Decrease quantity of Order 8.
     // Same price + smaller quantity -> FIFO preserved.
+
     book.modify(8, 9900, 150);
 
-    std::cout << "\nAfter quantity decrease of Order 8:\n";
+    std::cout
+        << "\nAfter quantity decrease of Order 8:\n";
 
     Order* modified_order = book.find_order(8);
 
     if (modified_order != nullptr) {
-        std::cout << "Order 8 -> Quantity: "
-        << modified_order->quantity << '\n';
+
+        std::cout
+            << "Order 8 -> Quantity: "
+            << modified_order->quantity
+            << '\n';
     }
-    
+
     location = book.order_map.find(8);
+
     if (location.has_value()) {
-        std::cout << "Order 8 -> Price: " << location->price
-        << " | Index: " << location->index << '\n';
+
+        std::cout
+            << "Order 8 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
     }
-    
+
+
     // Increase quantity of Order 7.
     // Same price + larger quantity -> cancel/re-add -> FIFO lost.
-    book.modify(7, 9900, 200);
-    
-    std::cout << "\nAfter quantity increase of Order 7:\n";
-    
-    location = book.order_map.find(7);
-    if (location.has_value()) {
-        std::cout << "Order 7 -> Price: " << location->price
-                << " | Index: " << location->index << '\n';
-            }
-            
-            location = book.order_map.find(8);
-            if (location.has_value()) {
-                std::cout << "Order 8 -> Price: " << location->price
-                << " | Index: " << location->index << '\n';
-            }
-            
-            // Change price of Order 8.
-            // Price change -> cancel/re-add -> FIFO lost.
-            book.modify(8, 9800, 150);
-            
-            std::cout << "\nAfter price modification of Order 8:\n";
-            
-            modified_order = book.find_order(8);
-            
-            if (modified_order != nullptr) {
-        std::cout << "Order 8 -> Price: "
-        << modified_order->price
-                << " | Quantity: "
-                << modified_order->quantity << '\n';
-    }
-    
-    location = book.order_map.find(8);
-    if (location.has_value()) {
-        std::cout << "Order 8 -> Price: " << location->price
-                << " | Index: " << location->index << '\n';
-            }
 
-            // Zero quantity -> cancellation
-            book.modify(7, 9900, 0);
-            
-    std::cout << "\nAfter setting Order 7 quantity to zero:\n";
-    
+    book.modify(7, 9900, 200);
+
+    std::cout
+        << "\nAfter quantity increase of Order 7:\n";
+
     location = book.order_map.find(7);
-    
+
+    if (location.has_value()) {
+
+        std::cout
+            << "Order 7 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
+    }
+
+    location = book.order_map.find(8);
+
+    if (location.has_value()) {
+
+        std::cout
+            << "Order 8 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
+    }
+
+
+    // Change price of Order 8.
+    // Price change -> cancel/re-add -> FIFO lost.
+
+    book.modify(8, 9800, 150);
+
+    std::cout
+        << "\nAfter price modification of Order 8:\n";
+
+    modified_order = book.find_order(8);
+
+    if (modified_order != nullptr) {
+
+        std::cout
+            << "Order 8 -> Price: "
+            << modified_order->price
+            << " | Quantity: "
+            << modified_order->quantity
+            << '\n';
+    }
+
+    location = book.order_map.find(8);
+
+    if (location.has_value()) {
+
+        std::cout
+            << "Order 8 -> Price: "
+            << location->price
+            << " | Index: "
+            << location->index
+            << '\n';
+    }
+
+
+    // Zero quantity -> cancellation
+
+    book.modify(7, 9900, 0);
+
+    std::cout
+        << "\nAfter setting Order 7 quantity to zero:\n";
+
+    location = book.order_map.find(7);
+
     if (!location.has_value()) {
-        std::cout << "Order 7 successfully cancelled\n";
+
+        std::cout
+            << "Order 7 successfully cancelled\n";
     }
     else {
-        std::cout << "ERROR: Order 7 still exists\n";
+
+        std::cout
+            << "ERROR: Order 7 still exists\n";
     }
-    
+
+
+    // ============================================================
+    // CHAPTER 5 — EVENT-DRIVEN SIMULATION
+    // ============================================================
+
+    std::cout << "\n\n";
+    std::cout << "============================================================\n";
+    std::cout << "        CHAPTER 5 — EVENT-DRIVEN SIMULATION\n";
+    std::cout << "============================================================\n";
+
+
+    // ------------------------------------------------------------
+    // 10. Create a fresh Simulator
+    // ------------------------------------------------------------
+
+    Simulator simulator;
+
+
+    // ------------------------------------------------------------
+    // 11. Create initial ADD events
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== ADD EVENTS =====\n";
+
+    Event event1{};
+    event1.type = EventType::ADD;
+    event1.timestamp = 100;
+    event1.sequence = 0;
+    event1.order = {101, Side::BUY, 10000, 100};
+
+    Event event2{};
+    event2.type = EventType::ADD;
+    event2.timestamp = 100;
+    event2.sequence = 1;
+    event2.order = {102, Side::BUY, 10050, 150};
+
+    Event event3{};
+    event3.type = EventType::ADD;
+    event3.timestamp = 100;
+    event3.sequence = 2;
+    event3.order = {103, Side::SELL, 10550, 200};
+
+    Event event4{};
+    event4.type = EventType::ADD;
+    event4.timestamp = 100;
+    event4.sequence = 3;
+    event4.order = {104, Side::SELL, 10500, 50};
+
+    simulator.add_event(event1);
+    simulator.add_event(event2);
+    simulator.add_event(event3);
+    simulator.add_event(event4);
+
+
+    // ------------------------------------------------------------
+    // 12. CANCEL event
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== CANCEL EVENT =====\n";
+
+    Event cancel_event{};
+    cancel_event.type = EventType::CANCEL;
+    cancel_event.timestamp = 101;
+    cancel_event.sequence = 0;
+    cancel_event.order_id = 102;
+
+    simulator.add_event(cancel_event);
+
+
+    // ------------------------------------------------------------
+    // 13. MODIFY event
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== MODIFY EVENT =====\n";
+
+    Event modify_event{};
+    modify_event.type = EventType::MODIFY;
+    modify_event.timestamp = 101;
+    modify_event.sequence = 1;
+    modify_event.order_id = 103;
+    modify_event.new_price = 10600;
+    modify_event.new_quantity = 150;
+
+    simulator.add_event(modify_event);
+
+
+    // ------------------------------------------------------------
+    // 14. Aggressive BUY event
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== AGGRESSIVE BUY EVENT =====\n";
+
+    Event buy_event{};
+    buy_event.type = EventType::ADD;
+    buy_event.timestamp = 102;
+    buy_event.sequence = 0;
+    buy_event.order = {105, Side::BUY, 10600, 120};
+
+    simulator.add_event(buy_event);
+
+
+    // ------------------------------------------------------------
+    // 15. Aggressive SELL event
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== AGGRESSIVE SELL EVENT =====\n";
+
+    Event sell_event{};
+    sell_event.type = EventType::ADD;
+    sell_event.timestamp = 103;
+    sell_event.sequence = 0;
+    sell_event.order = {106, Side::SELL, 10000, 80};
+
+    simulator.add_event(sell_event);
+
+
+    // ------------------------------------------------------------
+    // 16. Process entire event stream
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== PROCESSING EVENT STREAM =====\n";
+
+    simulator.process_events();
+
+
+    // ------------------------------------------------------------
+    // 17. Print final simulated book
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== FINAL SIMULATED BOOK =====\n";
+
+    std::cout
+        << "Best Bid: "
+        << simulator.order_book.best_bid()
+        << '\n';
+
+    std::cout
+        << "Best Ask: "
+        << simulator.order_book.best_ask()
+        << '\n';
+
+    std::cout
+        << "Spread: "
+        << simulator.order_book.spread()
+        << '\n';
+
+
+    // ------------------------------------------------------------
+    // 18. Print generated trades
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== GENERATED TRADES =====\n";
+
+    for (const Trade& trade : simulator.trades) {
+
+        std::cout
+            << "Incoming Order: "
+            << trade.incoming_order
+            << " | Resting Order: "
+            << trade.resting_order
+            << " | Price: "
+            << trade.price
+            << " | Quantity: "
+            << trade.quantity
+            << '\n';
+    }
+
+
+    // ------------------------------------------------------------
+    // 19. Print simulation clock
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== SIMULATION STATE =====\n";
+
+    std::cout
+        << "Current Timestamp: "
+        << simulator.current_time
+        << '\n';
+
+    std::cout
+        << "Last Sequence: "
+        << simulator.last_sequence
+        << '\n';
+
+
     return 0;
 }

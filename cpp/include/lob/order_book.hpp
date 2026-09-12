@@ -15,7 +15,7 @@ struct OrderBook {
 
     void add(const Order &order);
 
-    void cancel(OrderId order_id);
+    bool cancel(OrderId order_id);
 
     Price best_bid();
     

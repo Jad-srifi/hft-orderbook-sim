@@ -63,12 +63,12 @@ void OrderBook::add(const Order& order) {
     }
 }
 
-void OrderBook::cancel(OrderId order_id) {
+bool OrderBook::cancel(OrderId order_id) {
 
     std::optional<OrderLocation> location = this->order_map.find(order_id);
 
     if (!location.has_value()) {
-        return ;
+        return false;
     }
     
     if (location->side == Side::BUY) {
@@ -90,7 +90,7 @@ void OrderBook::cancel(OrderId order_id) {
                     this->bids.erase(this->bids.begin() + i);
                 }
                 
-                return ;
+                return true;
             }
         }
     }
@@ -114,14 +114,12 @@ void OrderBook::cancel(OrderId order_id) {
                     this->asks.erase(this->asks.begin() + i);
                 }
                 
-                return ;
+                return true;
             }
         }
     }
 
-    else {
-        return ;
-    }
+    return false;
 }
 
 void OrderBook::update_shifted_indices(Side side, Price price, std::size_t erased_index){
@@ -446,3 +444,4 @@ bool OrderBook::modify(OrderId order_id, Price new_price, Quantity new_quantity)
 
     return true;
 }
+
