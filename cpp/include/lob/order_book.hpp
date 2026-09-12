@@ -28,4 +28,8 @@ struct OrderBook {
     void sort_price_levels();
 
     void update_shifted_indices(Side side, Price price, std::size_t erased_index);
+
+    Order* find_order(OrderId order_id);
+
+    bool modify(OrderId order_id, Price new_price, Quantity new_quantity);
 };

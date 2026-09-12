@@ -280,5 +280,105 @@ int main() {
             << "(fully executed)\n";
     }
 
+    
+    // ------------------------------------------------------------
+    // 9. Order modification / replace
+    // ------------------------------------------------------------
+    
+    std::cout << "\n===== ORDER MODIFICATION =====\n";
+    
+    // Add two orders at the same price
+    Order order7 = {7, Side::BUY, 9900, 100};
+    Order order8 = {8, Side::BUY, 9900, 200};
+    
+    book.add(order7);
+    book.add(order8);
+    
+    std::cout << "Before modification:\n";
+    
+    location = book.order_map.find(7);
+    if (location.has_value()) {
+        std::cout << "Order 7 -> Price: " << location->price
+                << " | Index: " << location->index << '\n';
+    }
+
+    location = book.order_map.find(8);
+    if (location.has_value()) {
+        std::cout << "Order 8 -> Price: " << location->price
+                << " | Index: " << location->index << '\n';
+            }
+
+    // Decrease quantity of Order 8.
+    // Same price + smaller quantity -> FIFO preserved.
+    book.modify(8, 9900, 150);
+
+    std::cout << "\nAfter quantity decrease of Order 8:\n";
+
+    Order* modified_order = book.find_order(8);
+
+    if (modified_order != nullptr) {
+        std::cout << "Order 8 -> Quantity: "
+        << modified_order->quantity << '\n';
+    }
+    
+    location = book.order_map.find(8);
+    if (location.has_value()) {
+        std::cout << "Order 8 -> Price: " << location->price
+        << " | Index: " << location->index << '\n';
+    }
+    
+    // Increase quantity of Order 7.
+    // Same price + larger quantity -> cancel/re-add -> FIFO lost.
+    book.modify(7, 9900, 200);
+    
+    std::cout << "\nAfter quantity increase of Order 7:\n";
+    
+    location = book.order_map.find(7);
+    if (location.has_value()) {
+        std::cout << "Order 7 -> Price: " << location->price
+                << " | Index: " << location->index << '\n';
+            }
+            
+            location = book.order_map.find(8);
+            if (location.has_value()) {
+                std::cout << "Order 8 -> Price: " << location->price
+                << " | Index: " << location->index << '\n';
+            }
+            
+            // Change price of Order 8.
+            // Price change -> cancel/re-add -> FIFO lost.
+            book.modify(8, 9800, 150);
+            
+            std::cout << "\nAfter price modification of Order 8:\n";
+            
+            modified_order = book.find_order(8);
+            
+            if (modified_order != nullptr) {
+        std::cout << "Order 8 -> Price: "
+        << modified_order->price
+                << " | Quantity: "
+                << modified_order->quantity << '\n';
+    }
+    
+    location = book.order_map.find(8);
+    if (location.has_value()) {
+        std::cout << "Order 8 -> Price: " << location->price
+                << " | Index: " << location->index << '\n';
+            }
+
+            // Zero quantity -> cancellation
+            book.modify(7, 9900, 0);
+            
+    std::cout << "\nAfter setting Order 7 quantity to zero:\n";
+    
+    location = book.order_map.find(7);
+    
+    if (!location.has_value()) {
+        std::cout << "Order 7 successfully cancelled\n";
+    }
+    else {
+        std::cout << "ERROR: Order 7 still exists\n";
+    }
+    
     return 0;
 }

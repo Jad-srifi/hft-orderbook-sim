@@ -1,6 +1,6 @@
 # Hybrid C++/Python Limit Order Book Simulator
 
-# Chapter 1–3 — Order Book, Matching Engine & Order Tracking Architecture
+# Chapter 1–4 — Order Book, Matching Engine, Order Tracking & Modification Architecture
 
 ## 1. Overview
 
@@ -10,7 +10,9 @@ Chapter 1 establishes the fundamental data model of the limit order book. It imp
 
 Chapter 2 extends this foundation with a matching engine capable of processing crossing orders and generating trades according to price-time priority.
 
-Chapter 3 introduces fast order-ID tracking through an auxiliary hash map. This allows the order book to locate a resting order directly using its `OrderId` instead of scanning every price level and order.
+Chapter 3 introduces fast order-ID tracking through an auxiliary hash map. This allows the order book to locate a resting order using its `OrderId` without scanning every price level and order.
+
+Chapter 4 introduces order modification and replace semantics. Orders can have their quantity or price changed while preserving market-matching rules such as FIFO priority. Modifications that change an order's queue priority are implemented through cancellation followed by reinsertion.
 
 The implementation prioritizes correctness, clear data flow, and testability before introducing more advanced data structures and performance optimizations.
 
@@ -22,8 +24,8 @@ The current architecture is:
                       PriceLevel
                            ↓
                        OrderBook
-                       ↙       ↘
-                  OrderMap   Matching Engine
+                      ↙    ↓     ↘
+                OrderMap  Modify  Matching Engine
                                 ↓
                               Trade
 ```
@@ -393,7 +395,6 @@ The fundamental rule is:
 
 ```text
 BUY  → matches against ASKS
-
 SELL → matches against BIDS
 ```
 
@@ -476,7 +477,7 @@ Trade Price:    10500
 Trade Quantity: 80
 ```
 
-This means 80 units were executed between the incoming order and resting order at the resting order's price.
+This means 80 units were executed between the incoming order and the resting order at the resting order's price.
 
 A single incoming order can therefore generate multiple `Trade` objects when it consumes liquidity from multiple resting orders.
 
@@ -770,16 +771,19 @@ produces:
 
 ```text
 Trade 1:
+
 Incoming Order = 10
 Resting Order  = 1
 Quantity       = 20
 
 Trade 2:
+
 Incoming Order = 10
 Resting Order  = 2
 Quantity       = 30
 
 Trade 3:
+
 Incoming Order = 10
 Resting Order  = 3
 Quantity       = 10
@@ -805,13 +809,21 @@ During execution:
 
 ```text
 Initial Quantity
+
       ↓
+
 Match
+
       ↓
+
 Subtract Executed Quantity
+
       ↓
+
 Remaining Quantity
+
       ↓
+
 Continue Matching
 ```
 
@@ -867,27 +879,27 @@ Conceptually:
 ```text
 Trade
 
-  ↓
+ ↓
 
 Update Resting Order
 
-  ↓
+ ↓
 
 Update Price-Level Quantity
 
-  ↓
+ ↓
 
 Filled Order?
 
-  ├── YES → Remove Order
-  └── NO  → Keep Order
+ ├── YES → Remove Order
+ └── NO  → Keep Order
 
-  ↓
+ ↓
 
 Empty Price Level?
 
-  ├── YES → Remove Level
-  └── NO  → Keep Level
+ ├── YES → Remove Level
+ └── NO  → Keep Level
 ```
 
 The order book therefore remains synchronized with executed trades.
@@ -954,11 +966,17 @@ Conceptually:
 
 ```text
 Order ID
+
    ↓
+
 Scan price levels
+
    ↓
+
 Scan orders
+
    ↓
+
 Find matching ID
 ```
 
@@ -968,7 +986,9 @@ Chapter 3 introduces an auxiliary `OrderMap`:
 
 ```text
 OrderId
+
    ↓
+
 OrderLocation
 ```
 
@@ -1017,16 +1037,20 @@ Order ID: 42
 
 Side:  BUY
 Price: 10000
-Index:  3
+Index: 3
 ```
 
 means that Order 42 is stored:
 
 ```text
 BIDS
-  ↓
+
+ ↓
+
 Price Level 10000
-  ↓
+
+ ↓
+
 orders[3]
 ```
 
@@ -1042,12 +1066,17 @@ The current `OrderMap` contains:
 
 ```cpp
 struct OrderMap {
+
     std::unordered_map<OrderId, OrderLocation> orders;
 
     void add(OrderId order_id, OrderLocation order_location);
+
     void remove(OrderId order_id);
+
     std::optional<OrderLocation> find(OrderId order_id);
+
     void update(OrderId order_id, OrderLocation new_location);
+
 };
 ```
 
@@ -1055,6 +1084,7 @@ Conceptually:
 
 ```text
 OrderBook
+
 │
 ├── bids
 │   └── PriceLevels
@@ -1084,7 +1114,7 @@ std::vector<Order>
 
 Using:
 
-```cpp
+```text
 OrderId → Order*
 ```
 
@@ -1094,7 +1124,9 @@ The current design instead stores:
 
 ```text
 OrderId
+
     ↓
+
 Side + Price + Index
 ```
 
@@ -1120,6 +1152,7 @@ For example:
 
 ```text
 BUY Order 10
+
 Price = 10000
 Index = 2
 ```
@@ -1162,14 +1195,13 @@ Remove from PriceLevel
 Remove OrderMap entry
 ```
 
-This keeps the auxiliary index synchronized with the actual book.
-
 For example:
 
 ```text
 Before:
 
 OrderMap
+
 10 → { BUY, 10000, 0 }
 11 → { BUY, 10000, 1 }
 ```
@@ -1228,7 +1260,7 @@ Erase index k
 
       ↓
 
-Orders after k shift left
+Orders after k shift
 
       ↓
 
@@ -1257,7 +1289,9 @@ More explicitly:
 
 ```text
 Book Order
+
     ↕
+
 OrderMap Entry
 ```
 
@@ -1270,8 +1304,9 @@ When an order is:
 * fully filled → its map entry is removed
 * shifted inside a vector → its stored index is updated
 * partially filled → its existing map entry remains valid because its location does not change
+* replaced → its map location is removed and recreated at the new location
 
-This invariant is central to the correctness of the Chapter 3 architecture.
+This invariant remains central to the correctness of the architecture.
 
 ---
 
@@ -1345,14 +1380,374 @@ This keeps order-removal logic centralized rather than maintaining separate remo
 
 ---
 
-# Part IV — Current Data Structures and Ownership
+# Part IV — Order Lookup and Modification
 
-## 33. Current Data Structures
+## 33. Direct Order Lookup
+
+Chapter 4 introduces a helper for resolving an `OrderId` into the actual stored `Order`.
+
+The public operation is:
+
+```cpp
+Order* find_order(OrderId order_id);
+```
+
+The lookup path is:
+
+```text
+OrderId
+
+   ↓
+
+OrderMap::find()
+
+   ↓
+
+OrderLocation
+
+   ↓
+
+Select bids / asks using side
+
+   ↓
+
+Find PriceLevel using price
+
+   ↓
+
+Access orders[index]
+
+   ↓
+
+Return Order*
+```
+
+The `OrderMap` therefore provides the first stage of the lookup while `find_order()` resolves that location into the actual order stored inside the book.
+
+The returned pointer is a temporary access mechanism to the actual vector element.
+
+It must not be retained across operations that can erase or reallocate the underlying vector.
+
+The helper is primarily intended for controlled internal operations such as order modification and direct order inspection.
+
+---
+
+## 34. Order Modification / Replace
+
+Chapter 4 introduces:
+
+```cpp
+bool modify(
+    OrderId order_id,
+    Price new_price,
+    Quantity new_quantity
+);
+```
+
+The purpose of modification is to change the state of a resting order while respecting FIFO queue rules.
+
+The modification process is:
+
+```text
+modify(order_id, new_price, new_quantity)
+
+                ↓
+
+          find_order()
+
+                ↓
+
+       Does order exist?
+
+          ├── NO → false
+          │
+          └── YES
+
+                ↓
+
+       new_quantity == 0?
+
+          ├── YES
+          │
+          ↓
+       cancel(order_id)
+          │
+          ↓
+         true
+
+          └── NO
+
+                ↓
+
+   Same price AND new quantity
+      <= current quantity?
+
+          ├── YES
+          │
+          ↓
+     Modify in place
+     Preserve FIFO
+          │
+          ↓
+         true
+
+          └── NO
+
+                ↓
+
+     Create replacement
+     with same ID and side
+
+                ↓
+
+          cancel(old)
+
+                ↓
+
+          add(new)
+
+                ↓
+
+        FIFO priority lost
+
+                ↓
+
+              true
+```
+
+This creates explicit and deterministic modification semantics.
+
+---
+
+## 35. FIFO Rules for Modification
+
+Not every modification should preserve queue priority.
+
+The current rules are:
+
+### Same Price + Quantity Decrease
+
+If the price remains unchanged and the new quantity is less than or equal to the current quantity, the order is modified in place.
+
+Example:
+
+```text
+Before:
+
+Price 9900
+
+Order 7 → 100
+Order 8 → 200
+```
+
+Modify:
+
+```text
+Order 8 → 150
+```
+
+Result:
+
+```text
+Price 9900
+
+Order 7 → 100
+Order 8 → 150
+```
+
+Order 8 keeps its original position.
+
+Therefore:
+
+```text
+FIFO preserved
+```
+
+### Same Price + Quantity Increase
+
+Increasing quantity gives the order additional demand after it already exists in the queue.
+
+Therefore the order loses its original time priority.
+
+Example:
+
+```text
+Before:
+
+Order 7 → index 0
+Order 8 → index 1
+```
+
+After increasing Order 7:
+
+```text
+Order 8 → index 0
+Order 7 → index 1
+```
+
+The implementation achieves this through cancellation followed by reinsertion.
+
+Therefore:
+
+```text
+FIFO lost
+```
+
+### Price Change
+
+A price change places the order into a different price queue.
+
+The order therefore loses its previous time priority.
+
+The implementation performs:
+
+```text
+cancel(old)
+
+    ↓
+
+add(replacement)
+```
+
+The same `OrderId` and `Side` are preserved.
+
+---
+
+## 36. Quantity Zero as Cancellation
+
+A modification with:
+
+```text
+new_quantity = 0
+```
+
+is treated as cancellation.
+
+Therefore:
+
+```cpp
+modify(order_id, new_price, 0)
+```
+
+performs:
+
+```text
+cancel(order_id)
+```
+
+and returns:
+
+```text
+true
+```
+
+provided that the order existed.
+
+This ensures that zero-quantity resting orders do not remain in the book.
+
+---
+
+## 37. Order ID and Side Preservation
+
+When an order is replaced because its price or quantity increase changes queue priority, the replacement retains:
+
+```text
+Original OrderId
+Original Side
+```
+
+Only the modified attributes change:
+
+```text
+Price
+Quantity
+```
+
+For example:
+
+```text
+Before:
+
+Order 17
+Side     = BUY
+Price    = 10100
+Quantity = 100
+```
+
+After:
+
+```text
+Order 17
+Side     = BUY
+Price    = 10200
+Quantity = 100
+```
+
+The identity of the order remains unchanged even though its position in the book changes.
+
+---
+
+## 38. OrderMap During Modification
+
+Because modification may involve vector erase and reinsertion, the `OrderMap` must remain synchronized.
+
+For an in-place modification:
+
+```text
+Order
+
+   ↓
+
+Quantity / price updated
+
+   ↓
+
+Location unchanged
+
+   ↓
+
+OrderMap remains valid
+```
+
+For a replacement:
+
+```text
+OrderMap entry exists
+
+       ↓
+
+cancel()
+
+       ↓
+
+OrderMap entry removed
+
+       ↓
+
+Order reinserted
+
+       ↓
+
+New location created
+
+       ↓
+
+OrderMap entry recreated
+```
+
+The map therefore remains consistent regardless of whether the modification preserves or loses FIFO priority.
+
+---
+
+# Part V — Current Data Structures and Ownership
+
+## 39. Current Data Structures
 
 The current implementation uses simple `std::vector` containers:
 
 ```cpp
 std::vector<PriceLevel> bids;
+
 std::vector<PriceLevel> asks;
 ```
 
@@ -1401,7 +1796,7 @@ The `OrderMap` provides indexed access to existing orders without changing owner
 
 ---
 
-## 34. Data Ownership
+## 40. Data Ownership
 
 The `OrderBook` owns its bid and ask price levels.
 
@@ -1427,9 +1822,9 @@ The incoming order is supplied to the matching engine by reference, allowing its
 
 ---
 
-# Part V — Current API
+# Part VI — Current API
 
-## 35. Current OrderBook API
+## 41. Current OrderBook API
 
 The current `OrderBook` exposes:
 
@@ -1446,6 +1841,14 @@ float spread();
 
 std::vector<Trade> process_order(Order& order);
 
+Order* find_order(OrderId order_id);
+
+bool modify(
+    OrderId order_id,
+    Price new_price,
+    Quantity new_quantity
+);
+
 void sort_price_levels();
 
 void update_shifted_indices(
@@ -1459,8 +1862,12 @@ void update_shifted_indices(
 
 ```cpp
 add()
+
 cancel()
+
 process_order()
+
+modify()
 ```
 
 These operations can modify the order-book state.
@@ -1474,45 +1881,67 @@ These operations can modify the order-book state.
 * modify the incoming order's remaining quantity
 * add remaining incoming quantity to the book
 
-### Queries
+`modify()` may:
+
+* change an order in place
+* cancel and replace an order
+* preserve or reset FIFO priority
+* update the `OrderMap`
+* remove an order when quantity becomes zero
+
+### Queries / Accessors
 
 ```cpp
 best_bid()
+
 best_ask()
+
 spread()
+
+find_order()
 ```
 
-These inspect the current order-book state.
+These inspect or resolve the current order-book state without independently changing ownership.
 
 ---
 
-## 36. Current OrderMap API
+## 42. Current OrderMap API
 
 The current `OrderMap` exposes:
 
 ```cpp
-void add(OrderId order_id, OrderLocation order_location);
+void add(
+    OrderId order_id,
+    OrderLocation order_location
+);
 
 void remove(OrderId order_id);
 
 std::optional<OrderLocation> find(OrderId order_id);
 
-void update(OrderId order_id, OrderLocation new_location);
+void update(
+    OrderId order_id,
+    OrderLocation new_location
+);
 ```
 
 The responsibilities are:
 
 ```text
 add()
+
     Add a new OrderId → location mapping
 
 remove()
+
     Delete a mapping
 
 find()
+
     Retrieve an order's current location
 
 update()
+
     Replace a stored location after vector shifts
 ```
 
@@ -1522,9 +1951,9 @@ This allows a missing `OrderId` to be represented explicitly by `std::nullopt`.
 
 ---
 
-# Part VI — Order Lifecycle
+# Part VII — Order Lifecycle
 
-## 37. Resting Order Lifecycle
+## 43. Resting Order Lifecycle
 
 ```text
 Order Creation
@@ -1555,11 +1984,11 @@ Order Becomes Resting Liquidity
 
       ↓
 
-Cancellation OR Matching
+Cancellation / Matching / Modification
 
       ↓
 
-Quantity Updated / Order Removed
+Quantity Updated / Order Removed / Order Replaced
 
       ↓
 
@@ -1572,7 +2001,7 @@ Price Level Removed if Empty
 
 ---
 
-## 38. Incoming Executable Order
+## 44. Incoming Executable Order
 
 ```text
 Order Creation
@@ -1606,24 +2035,57 @@ Quantity Updated
 Fully Filled OR Remaining Quantity
 
       ↓
-     ┌─────────────────┐
-     │                 │
-Fully Filled     Remaining Quantity
-     │                 │
-     ↓                 ↓
-Not inserted       add() to book
-into OrderMap           │
-                        ↓
-                  OrderMap Entry
+
+     ┌─────────────────────┐
+     │                     │
+Fully Filled       Remaining Quantity
+     │                     │
+     ↓                     ↓
+Not inserted             add()
+into OrderMap               │
+                            ↓
+                       OrderMap Entry
 ```
 
 This creates the fundamental execution lifecycle required for later market microstructure simulation.
 
 ---
 
-# Part VII — Testing
+## 45. Modified Order Lifecycle
 
-## 39. Chapter 1 Testing
+An order modification has one of three main paths.
+
+```text
+Existing Resting Order
+
+        ↓
+
+     modify()
+
+        ↓
+
+ ┌───────────────┬────────────────────┐
+ │               │                    │
+Decrease /       Increase or         Quantity
+equal quantity   price change        becomes 0
+ │               │                    │
+ ↓               ↓                    ↓
+Modify in        cancel + add       cancel
+place            replacement        order
+ │               │                    │
+ ↓               ↓                    ↓
+FIFO preserved   FIFO lost           Removed
+```
+
+The `OrderId` remains unchanged during replacement.
+
+The `OrderMap` must continue to identify the currently active resting representation of that order.
+
+---
+
+# Part VIII — Testing
+
+## 46. Chapter 1 Testing
 
 Chapter 1 includes:
 
@@ -1649,7 +2111,7 @@ The original tests verify:
 
 ---
 
-## 40. Chapter 2 Testing
+## 47. Chapter 2 Testing
 
 Chapter 2 includes:
 
@@ -1679,7 +2141,7 @@ The matching-engine test suite verifies:
 
 ---
 
-## 41. Chapter 3 Integration Testing
+## 48. Chapter 3 Integration Testing
 
 Chapter 3 extends:
 
@@ -1689,7 +2151,7 @@ tests/cpp/test_order_book.cpp
 
 with integration tests covering the interaction between the order book, matching engine, and `OrderMap`.
 
-The current integration suite verifies:
+The integration suite verifies:
 
 * initial `OrderMap` population
 * BUY order tracking
@@ -1709,58 +2171,98 @@ The current integration suite verifies:
 * nonexistent cancellation not corrupting the book
 * final consistency between the book and `OrderMap`
 
-The final test suite currently passes all checks:
+These tests establish the central Chapter 3 synchronization invariant.
+
+---
+
+## 49. Chapter 4 Testing
+
+Chapter 4 extends the same integration test suite with direct tests for order lookup and modification.
+
+The current Chapter 4 tests verify:
+
+* direct `find_order()` lookup
+* nonexistent `find_order()` returns `nullptr`
+* same-price quantity decrease preserves FIFO
+* same-price quantity increase loses FIFO
+* price modification loses FIFO
+* modified quantity is correct
+* modified price is correct
+* Order ID is preserved
+* side is preserved
+* `OrderMap` price remains correct
+* `OrderMap` index remains correct
+* shifted indices remain correct after replacement
+* old price-level membership is removed when required
+* zero quantity acts as cancellation
+* nonexistent modification returns `false`
+* modification after partial fill
+* modified orders remain executable
+* fully matched modified orders are removed from `OrderMap`
+* FIFO resets after replacement
+
+The Chapter 4 test suite also verifies that modifications performed after previous matching and cancellation operations do not corrupt the existing book state.
+
+The current test output includes:
 
 ```text
-PASS: initial OrderMap state
-PASS: middle cancellation updates shifted indices
-PASS: first cancellation updates shifted index
-PASS: empty price level removed
-PASS: partial fill preserves OrderMap entry
-PASS: full fill removes order and updates shifted index
-PASS: multi-level BUY matching preserves OrderMap
-PASS: new orders correctly inserted after previous deletions
-PASS: multi-level SELL matching preserves OrderMap
-PASS: SELL partial fill leaves indices correct
-PASS: cancellation remains correct after matching
-PASS: nonexistent cancellation does not corrupt book
-PASS: final OrderMap consistency
+PASS: quantity decrease preserves FIFO
+PASS: quantity increase loses FIFO
+PASS: price modification moves order to new level
+PASS: modification preserves Order ID and side
+PASS: OrderMap indices remain correct after replacement
+PASS: zero quantity cancels order
+PASS: nonexistent modification returns false
+PASS: modification after partial fill
+PASS: modified order matches correctly
+PASS: FIFO resets after replacement
 
 ========================================
 ALL ORDER BOOK TESTS PASSED
 ========================================
 ```
 
-These tests provide the current correctness gate for Chapter 3.
+These tests provide the current correctness gate for Chapter 4.
 
 ---
 
-## 42. Test Philosophy
+## 50. Test Philosophy
 
 The test suites use a lightweight custom checking mechanism rather than a third-party testing framework.
 
 The tests are designed to verify both individual functionality and system invariants.
 
-For Chapter 3, correctness is not limited to checking whether an order can be found.
+For Chapters 3 and 4, correctness is not limited to checking whether an order can be found or modified.
 
-The integration tests verify that the index remains synchronized after mutations such as:
+The integration tests verify that the index and order-book state remain synchronized after mutations such as:
 
 ```text
 insertions
+
 cancellations
+
 vector erasures
+
 partial fills
+
 full fills
+
 multi-level matching
+
+quantity modifications
+
+price modifications
+
+order replacement
 ```
 
 This is important because the `OrderMap` is an auxiliary data structure whose correctness depends on staying synchronized with the underlying book.
 
 ---
 
-# Part VIII — Simulator
+# Part IX — Simulator
 
-## 43. Simulator
+## 51. Simulator
 
 The simulator executable is:
 
@@ -1768,9 +2270,9 @@ The simulator executable is:
 cpp/app/simulate_main.cpp
 ```
 
-It demonstrates the current order-book and matching behavior.
+It demonstrates the current order-book, matching, tracking, and modification behavior.
 
-The simulator verifies:
+The simulator currently verifies:
 
 * initial book construction
 * best bid
@@ -1789,6 +2291,36 @@ The simulator verifies:
 * resulting best bid and ask
 * removal of fully filled orders from OrderMap
 * persistence of partially filled orders in OrderMap
+* direct order modification
+* quantity decrease with FIFO preservation
+* quantity increase with FIFO loss
+* price modification with FIFO loss
+* zero-quantity cancellation
+
+The Chapter 4 simulator demonstration currently produces behavior equivalent to:
+
+```text
+===== ORDER MODIFICATION =====
+
+Before modification:
+Order 7 -> Price: 9900 | Index: 0
+Order 8 -> Price: 9900 | Index: 1
+
+After quantity decrease of Order 8:
+Order 8 -> Quantity: 150
+Order 8 -> Price: 9900 | Index: 1
+
+After quantity increase of Order 7:
+Order 7 -> Price: 9900 | Index: 1
+Order 8 -> Price: 9900 | Index: 0
+
+After price modification of Order 8:
+Order 8 -> Price: 9800 | Quantity: 150
+Order 8 -> Price: 9800 | Index: 0
+
+After setting Order 7 quantity to zero:
+Order 7 successfully cancelled
+```
 
 The simulator is intended as a small deterministic demonstration of the engine rather than a full market-event generator.
 
@@ -1796,9 +2328,9 @@ Large-scale event simulation will be introduced in a later chapter.
 
 ---
 
-# Part IX — Current Scope
+# Part X — Current Scope
 
-## 44. Scope of Chapters 1–3
+## 52. Scope of Chapters 1–4
 
 The current implementation includes:
 
@@ -1828,10 +2360,20 @@ The current implementation includes:
 * `OrderMap`
 * shifted-index synchronization
 * OrderMap/book consistency invariant
+* direct `OrderId` → `Order*` resolution through `find_order()`
+* order quantity modification
+* order price modification
+* FIFO-preserving quantity decreases
+* FIFO-resetting quantity increases
+* FIFO-resetting price changes
+* order replacement
+* Order ID preservation during replacement
+* side preservation during replacement
+* zero-quantity modification as cancellation
+* modification-related OrderMap synchronization
 
 The project intentionally does not yet implement:
 
-* modify-order operations
 * high-volume event generation
 * NASDAQ ITCH parsing
 * historical replay
@@ -1851,9 +2393,9 @@ These features will be introduced progressively in later chapters.
 
 ---
 
-# Part X — Performance Considerations
+# Part XI — Performance Considerations
 
-## 45. Current Performance Model
+## 53. Current Performance Model
 
 The current vector-based implementation is designed primarily for correctness and conceptual clarity.
 
@@ -1862,11 +2404,23 @@ It is not yet the final high-performance architecture.
 The current computational characteristics include:
 
 ```text
-Price-level search        → linear in number of levels
+Price-level search          → linear in number of levels
+
 Order insertion into level → vector append
-Order removal             → vector erase + shifted-index updates
-Order ID lookup            → average O(1) through unordered_map
-Matching                   → traversal of price levels and orders
+
+Order removal              → vector erase + shifted-index updates
+
+Order ID lookup             → average O(1) through unordered_map
+
+Direct order resolution     → map lookup + price-level search
+
+Matching                    → traversal of price levels and orders
+
+FIFO-preserving modification
+                            → in-place mutation
+
+Priority-changing modification
+                            → cancel + reinsert
 ```
 
 The introduction of `OrderMap` removes the need for a full book-wide search when locating an order by ID.
@@ -1887,7 +2441,9 @@ orders after k shift
 OrderMap indices must be updated
 ```
 
-Therefore the `OrderMap` improves order-ID lookup without pretending that all order-book operations are already optimal.
+Similarly, replacement operations that lose priority intentionally pay the cost of cancellation and reinsertion.
+
+Therefore the `OrderMap` and modification system improve functionality without pretending that all order-book operations are already optimal.
 
 This distinction is intentional.
 
@@ -1895,73 +2451,111 @@ The project establishes a correct architecture first and will optimize specific 
 
 ---
 
-# Part XI — Architectural Progression
+# Part XII — Architectural Progression
 
-## 46. Architecture After Chapter 3
+## 54. Architecture After Chapter 4
 
-The architecture has progressed from basic book representation to execution and indexed order tracking.
+The architecture has progressed from basic book representation to execution, indexed order tracking, and explicit order modification semantics.
 
 ```text
-                    Order
-                      ↓
-                PriceLevel
-                      ↓
-                  OrderBook
-                  ↙       ↘
-             OrderMap   Matching Engine
+                         Order
                            ↓
-                         Trade
+                      PriceLevel
+                           ↓
+                       OrderBook
+                    ↙      ↓      ↘
+               OrderMap  Modify   Matching Engine
+                                     ↓
+                                   Trade
 ```
 
 The `OrderMap` is an auxiliary index over the underlying vector-based order storage.
 
 It does not replace the order book.
 
+`find_order()` converts the indexed location into access to the actual stored order.
+
+`modify()` uses that lookup to implement deterministic modification semantics while preserving the core ownership model.
+
 The resulting division of responsibilities is:
 
 ```text
 Order
+
     Represents individual order state
 
 PriceLevel
+
     Groups orders at the same price
 
 OrderBook
+
     Owns bids, asks, and overall book state
 
 OrderMap
+
     Provides fast OrderId → location lookup
 
+find_order()
+
+    Resolves OrderId → actual stored Order
+
+modify()
+
+    Changes order state while enforcing FIFO rules
+
 Matching Engine
+
     Determines executions and generates trades
 
 Trade
+
     Represents execution results
 ```
 
 ---
 
-## 47. Planned Architecture
+## 55. Planned Architecture
 
 The longer-term architecture is:
 
 ```text
 Market Data
+
      ↓
+
 Order Ingestion
+
      ↓
+
 Order ID Tracking
+
      ↓
+
 Price-Level Structure
+
      ↓
+
+Order Modification / Cancellation
+
+     ↓
+
 Matching Engine
+
      ↓
+
 LOB State
+
      ↓
+
 Microstructure Features
+
      ↓
+
 Execution / Slippage / Risk
+
      ↓
+
 Python Research Layer
 ```
 
@@ -1971,9 +2565,9 @@ Each stage establishes functionality that later stages depend on.
 
 ---
 
-# Part XII — Chapter 3 Design Principles
+# Part XIII — Chapter 1–4 Design Principles
 
-## 48. Auxiliary Index Rather Than Replacement Structure
+## 56. Auxiliary Index Rather Than Replacement Structure
 
 The central design decision of Chapter 3 is that `OrderMap` is an index rather than a second copy of the order book.
 
@@ -1999,9 +2593,9 @@ This avoids duplicating complete order objects and keeps ownership straightforwa
 
 ---
 
-## 49. Synchronization Invariant
+## 57. Synchronization Invariant
 
-The correctness of the Chapter 3 architecture depends on maintaining:
+The correctness of the architecture depends on maintaining:
 
 ```text
 Book state ↔ OrderMap state
@@ -2013,29 +2607,77 @@ The major synchronization events are:
 
 ```text
 add()
+
     → create map entry
 
 cancel()
+
     → remove map entry
     → update shifted entries
 
 partial fill
+
     → quantity changes
     → location remains valid
 
 full fill
+
     → remove map entry
     → update shifted entries
 
-new order after deletion
-    → create correct new location
+quantity decrease without priority loss
+
+    → order modified in place
+    → location remains valid
+
+quantity increase
+
+    → cancel existing order
+    → reinsert replacement
+    → create new map location
+
+price change
+
+    → cancel existing order
+    → insert at new price level
+    → create new map location
 ```
 
-The Chapter 3 integration suite explicitly tests these transitions.
+The integration suite explicitly tests these transitions.
 
 ---
 
-## 50. Why Correctness Comes Before Optimization
+## 58. Modification Semantics Are Part of Market Structure
+
+Order modification is not treated as a generic field update.
+
+The modification rules encode queue-priority behavior:
+
+```text
+Same price + smaller/equal quantity
+        ↓
+Modify in place
+        ↓
+FIFO preserved
+```
+
+versus:
+
+```text
+Quantity increase OR price change
+        ↓
+Cancel + replace
+        ↓
+FIFO lost
+```
+
+This distinction is essential because modifying an order can change its position relative to other participants at the same price.
+
+The simulator therefore models modification as a market-structure event rather than merely a data mutation.
+
+---
+
+## 59. Why Correctness Comes Before Optimization
 
 The current architecture deliberately uses straightforward containers and explicit synchronization.
 
@@ -2043,11 +2685,21 @@ The objective is first to establish:
 
 ```text
 Correct Order Book
+
         +
+
 Correct Matching
+
         +
+
 Correct Order Tracking
+
+        +
+
+Correct Modification Semantics
+
         =
+
 Reliable Simulation Core
 ```
 
@@ -2057,15 +2709,25 @@ Future optimization decisions will be justified through:
 
 ```text
 Benchmarking
+
     ↓
+
 Profiling
+
     ↓
+
 Identify bottleneck
+
     ↓
+
 Change data structure / algorithm
+
     ↓
+
 Benchmark again
+
     ↓
+
 Verify correctness
 ```
 
@@ -2073,17 +2735,21 @@ Performance improvements will therefore be measured rather than assumed.
 
 ---
 
-# 51. Chapter 1–3 Design Principle
+## 60. Chapter 1–4 Design Principle
 
-The first three chapters establish three fundamental layers of the simulator.
+The first four chapters establish four fundamental layers of the simulator.
 
 ### Chapter 1 — Represent Liquidity
 
 ```text
 Individual Order
+
         ↓
+
 Price Level
+
         ↓
+
 Order Book
 ```
 
@@ -2093,11 +2759,17 @@ Chapter 1 establishes how resting liquidity is stored and queried.
 
 ```text
 Incoming Order
+
         ↓
+
 Matching Engine
+
         ↓
+
 Trade(s)
+
         ↓
+
 Updated Book
 ```
 
@@ -2107,41 +2779,76 @@ Chapter 2 establishes how liquidity is consumed when incoming orders cross the b
 
 ```text
 OrderId
+
    ↓
+
 OrderMap
+
    ↓
+
 OrderLocation
+
    ↓
+
 Actual Order in Book
 ```
 
 Chapter 3 establishes efficient order identification while preserving the existing ownership model.
 
+### Chapter 4 — Modify Liquidity
+
+```text
+OrderId
+
+   ↓
+
+find_order()
+
+   ↓
+
+modify()
+
+   ↓
+
+Preserve FIFO
+OR
+Cancel + Replace
+
+   ↓
+
+Updated Book + OrderMap
+```
+
+Chapter 4 establishes explicit order-modification semantics and connects order identity, queue priority, and book mutation.
+
 Together:
 
 ```text
-                 ┌───────────────┐
-                 │     Order     │
-                 └───────┬───────┘
-                         ↓
-                 ┌───────────────┐
-                 │  PriceLevel   │
-                 └───────┬───────┘
-                         ↓
-              ┌─────────────────────┐
-              │      OrderBook      │
-              └───────┬───────┬─────┘
-                      │       │
-                      │       │
-                      ↓       ↓
-                OrderMap   Matching
-                             Engine
-                               ↓
-                             Trade
+                    ┌───────────────┐
+                    │     Order     │
+                    └───────┬───────┘
+                            ↓
+                    ┌───────────────┐
+                    │  PriceLevel   │
+                    └───────┬───────┘
+                            ↓
+                 ┌─────────────────────┐
+                 │      OrderBook      │
+                 └───────┬───────┬─────┘
+                         │       │
+              ┌──────────┘       └───────────┐
+              ↓                              ↓
+          OrderMap                       Matching
+              │                           Engine
+              ↓                              ↓
+        find_order()                      Trade
+              │
+              ↓
+          modify()
 ```
 
 This creates the core market mechanism on which later microstructure, execution, risk, historical replay, and performance components will depend.
 
 The implementation deliberately favors correctness and transparency before optimization.
 
-Future chapters will build on this foundation without changing the fundamental concept of the order book itself.
+Future chapters will build on this foundation while preserving the fundamental ownership model and synchronization invariants established in the first four chapters.

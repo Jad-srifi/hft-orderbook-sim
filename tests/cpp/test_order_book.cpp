@@ -328,8 +328,200 @@ int main() {
     assert(!book.order_map.find(11).has_value());
     assert(!book.order_map.find(13).has_value());
     assert(!book.order_map.find(15).has_value());
-
+    
     std::cout << "PASS: final OrderMap consistency\n";
+    
+    // Quick test. FIND_ORDER HELPER
+    assert(book.find_order(8) != nullptr);
+    assert(book.find_order(8)->id == 8);
+    assert(book.find_order(8)->side == Side::SELL);
+    assert(book.find_order(8)->price == 10600);
+    assert(book.find_order(8)->quantity == 50);
+
+    assert(book.find_order(999999) == nullptr);
+
+    // ============================================================
+    // 14. ORDER MODIFICATION / REPLACE
+    // ============================================================
+
+    // ------------------------------------------------------------
+    // 14.1 Same-price quantity decrease preserves FIFO
+    // ------------------------------------------------------------
+
+    book.add({16, Side::BUY, 10100, 100});
+    book.add({17, Side::BUY, 10100, 200});
+    book.add({18, Side::BUY, 10100, 300});
+
+    // Order 16 is first, 17 second, 18 third.
+    assert(book.order_map.find(16)->index == 0);
+    assert(book.order_map.find(17)->index == 1);
+    assert(book.order_map.find(18)->index == 2);
+
+    // Decrease Order 17 from 200 -> 100.
+    // Same price + smaller quantity = preserve FIFO.
+    assert(book.modify(17, 10100, 100));
+
+    assert(book.find_order(17) != nullptr);
+    assert(book.find_order(17)->quantity == 100);
+    assert(book.find_order(17)->price == 10100);
+
+    // Position must remain unchanged.
+    assert(book.order_map.find(17)->index == 1);
+
+    assert(book.order_map.find(16)->index == 0);
+    assert(book.order_map.find(18)->index == 2);
+
+    std::cout << "PASS: quantity decrease preserves FIFO\n";
+
+
+    // ------------------------------------------------------------
+    // 14.2 Same-price quantity increase loses FIFO
+    // ------------------------------------------------------------
+
+    // Increase Order 16 from 100 -> 150.
+    // This requires cancel + re-add, so it goes to the back.
+    assert(book.modify(16, 10100, 150));
+
+    assert(book.find_order(16) != nullptr);
+    assert(book.find_order(16)->quantity == 150);
+    assert(book.find_order(16)->price == 10100);
+
+    // Expected order sequence:
+    // 17 -> index 0
+    // 18 -> index 1
+    // 16 -> index 2
+
+    assert(book.order_map.find(17)->index == 0);
+    assert(book.order_map.find(18)->index == 1);
+    assert(book.order_map.find(16)->index == 2);
+
+    std::cout << "PASS: quantity increase loses FIFO\n";
+
+
+    // ------------------------------------------------------------
+    // 14.3 Price modification loses FIFO
+    // ------------------------------------------------------------
+
+    // Move Order 17 from 10100 -> 10200.
+    // It must be removed from the old level and added to the new level.
+    assert(book.modify(17, 10200, 100));
+
+    assert(book.find_order(17) != nullptr);
+    assert(book.find_order(17)->price == 10200);
+    assert(book.find_order(17)->quantity == 100);
+
+    assert(book.order_map.find(17)->price == 10200);
+    assert(book.order_map.find(17)->index == 0);
+
+    std::cout << "PASS: price modification moves order to new level\n";
+
+
+    // ------------------------------------------------------------
+    // 14.4 Order ID and side are preserved
+    // ------------------------------------------------------------
+
+    assert(book.find_order(17)->id == 17);
+    assert(book.find_order(17)->side == Side::BUY);
+
+    std::cout << "PASS: modification preserves Order ID and side\n";
+
+
+    // ------------------------------------------------------------
+    // 14.5 Shifted indices remain correct after modification
+    // ------------------------------------------------------------
+
+    // Current 10100 level:
+    // Order 18
+    // Order 16
+    //
+    // Order 17 was moved away, so Order 16 must now be index 1.
+    assert(book.order_map.find(18)->index == 0);
+    assert(book.order_map.find(16)->index == 1);
+
+    std::cout << "PASS: OrderMap indices remain correct after replacement\n";
+
+
+    // ------------------------------------------------------------
+    // 14.6 Zero quantity = cancellation
+    // ------------------------------------------------------------
+
+    assert(book.modify(18, 10100, 0));
+
+    assert(book.find_order(18) == nullptr);
+    assert(!book.order_map.find(18).has_value());
+
+    std::cout << "PASS: zero quantity cancels order\n";
+
+
+    // ------------------------------------------------------------
+    // 14.7 Nonexistent order
+    // ------------------------------------------------------------
+
+    assert(!book.modify(999999, 10000, 100));
+
+    std::cout << "PASS: nonexistent modification returns false\n";
+
+
+    // ------------------------------------------------------------
+    // 14.8 Modification after partial fill
+    // ------------------------------------------------------------
+
+    // Order 8 currently has 50 remaining at 10600.
+    assert(book.find_order(8) != nullptr);
+    assert(book.find_order(8)->quantity == 50);
+
+    // Decrease remaining quantity.
+    // Same price + smaller quantity preserves priority.
+    assert(book.modify(8, 10600, 25));
+
+    assert(book.find_order(8) != nullptr);
+    assert(book.find_order(8)->quantity == 25);
+    assert(book.order_map.find(8)->price == 10600);
+    assert(book.order_map.find(8)->index == 0);
+
+    std::cout << "PASS: modification after partial fill\n";
+
+
+    // ------------------------------------------------------------
+    // 14.9 Modified order can match correctly
+    // ------------------------------------------------------------
+
+    // Order 8 now has 25 at 10600.
+    // Buy 25 at 10600 should completely consume it.
+    Order buy_modified = {19, Side::BUY, 10600, 25};
+
+    trades = book.process_order(buy_modified);
+
+    assert(trades.size() == 1);
+    assert(trades[0].incoming_order == 19);
+    assert(trades[0].resting_order == 8);
+    assert(trades[0].price == 10600);
+    assert(trades[0].quantity == 25);
+
+    assert(buy_modified.quantity == 0);
+    assert(book.find_order(8) == nullptr);
+    assert(!book.order_map.find(8).has_value());
+    assert(!book.order_map.find(19).has_value());
+
+    std::cout << "PASS: modified order matches correctly\n";
+
+
+    // ------------------------------------------------------------
+    // 14.10 FIFO reset after replacement
+    // ------------------------------------------------------------
+
+    book.add({20, Side::BUY, 9000, 100});
+    book.add({21, Side::BUY, 9000, 100});
+
+    assert(book.order_map.find(20)->index == 0);
+    assert(book.order_map.find(21)->index == 1);
+
+    assert(book.modify(20, 9000, 200));
+
+    assert(book.order_map.find(21)->index == 0);
+    assert(book.order_map.find(20)->index == 1);
+
+    std::cout << "PASS: FIFO resets after replacement\n";
 
 
     // ============================================================

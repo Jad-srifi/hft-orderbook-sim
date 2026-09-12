@@ -385,3 +385,64 @@ std::vector<Trade> OrderBook::process_order(Order &order) {
     else {return trades;}
 }
 
+Order* OrderBook::find_order(OrderId order_id) {
+
+    std::optional<OrderLocation> location = this->order_map.find(order_id);
+
+    if (!location.has_value()) {
+        return nullptr;
+    }
+
+    if (location->side == Side::BUY) {
+        for (size_t i = 0; i < this->bids.size(); i++) {
+
+            PriceLevel& cur_pl = this->bids[i];
+
+            if (location->price == cur_pl.price) {
+                return &cur_pl.orders[location->index];
+            }
+        }
+    }
+
+    else if (location->side == Side::SELL) {
+        for (size_t i = 0; i < this->asks.size(); i++) {
+
+            PriceLevel& cur_pl = this->asks[i];
+
+            if (location->price == cur_pl.price) {
+                return &cur_pl.orders[location->index];
+            }
+        }
+    }
+
+    return nullptr;   
+}
+
+bool OrderBook::modify(OrderId order_id, Price new_price, Quantity new_quantity) {
+    Order* order = this->find_order(order_id);
+
+    if (order == nullptr) {
+        return false;
+    }
+
+    if (new_quantity == 0) {
+        this->cancel(order_id);
+        return true;
+    }
+
+    bool lose_priority = new_price != order->price || new_quantity > order->quantity;
+
+    if (!lose_priority) {
+        order->price = new_price;
+        order->quantity = new_quantity;
+        
+        return true;
+    }
+
+    Order new_order = {order_id, order->side, new_price, new_quantity};
+
+    this->cancel(order_id);
+    this->add(new_order);
+
+    return true;
+}
