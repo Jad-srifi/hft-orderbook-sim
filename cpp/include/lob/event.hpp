@@ -4,9 +4,6 @@
 #include <types.hpp>
 #include <order.hpp>
 
-using Timestamp = std::uint64_t;
-using SequenceNumber = std::uint64_t;
-
 enum class EventType {
     ADD,
     CANCEL,

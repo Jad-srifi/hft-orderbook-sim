@@ -178,10 +178,21 @@ void OrderBook::update_shifted_indices(Side side, Price price, std::size_t erase
     }
 }
 
-Price OrderBook::best_bid() {
+const std::vector<PriceLevel>& OrderBook::bid_levels() const {
+    return bids;
+}
+
+const std::vector<PriceLevel>& OrderBook::ask_levels() const {
+    return asks;
+}
+
+Price OrderBook::best_bid() const {
     Price best_bid {0};
+
     for (size_t i = 0, len = (this->bids).size(); i < len; i++) {
+
         Price curr_bid = this->bids[i].price;
+
         if (best_bid == 0 || curr_bid > best_bid) {
             best_bid = curr_bid;
         }
@@ -189,10 +200,13 @@ Price OrderBook::best_bid() {
     return best_bid;
 }
 
-Price OrderBook::best_ask() {
+Price OrderBook::best_ask() const {
     Price best_ask {0};
+
     for (size_t i = 0, len = (this->asks).size(); i < len; i++) {
+
         Price curr_ask = this->asks[i].price;
+
         if (best_ask == 0 || curr_ask < best_ask) {
             best_ask = curr_ask;
         }
@@ -200,9 +214,13 @@ Price OrderBook::best_ask() {
     return best_ask;
 }
 
-float OrderBook::spread() {
+Price OrderBook::spread() const {
     Price best_bid = OrderBook::best_bid();
     Price best_ask = OrderBook::best_ask();
+    
+    if (best_ask == 0 || best_bid == 0) {
+        return 0;
+    }
 
     return best_ask - best_bid;
 }

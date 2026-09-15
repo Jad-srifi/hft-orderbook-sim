@@ -17,17 +17,21 @@ struct OrderBook {
 
     bool cancel(OrderId order_id);
 
-    Price best_bid();
-    
-    Price best_ask(); 
+    void update_shifted_indices(Side side, Price price, std::size_t erased_index);
 
-    float spread();
+    const std::vector<PriceLevel>& bid_levels() const;
+
+    const std::vector<PriceLevel>& ask_levels() const;
+
+    Price best_bid() const;
+    
+    Price best_ask() const; 
+
+    Price spread() const;
 
     std::vector<Trade> process_order(Order &order);
 
     void sort_price_levels();
-
-    void update_shifted_indices(Side side, Price price, std::size_t erased_index);
 
     Order* find_order(OrderId order_id);
 

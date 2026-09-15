@@ -4,6 +4,7 @@
 #include <trade.hpp>
 #include <simulator.hpp>
 #include <event.hpp>
+#include <metrics.hpp>
 
 #include <iostream>
 #include <vector>
@@ -677,6 +678,52 @@ int main() {
         << simulator.last_sequence
         << '\n';
 
+
+    // ============================================================
+    // CHAPTER 6 — MARKET MICROSTRUCTURE METRICS
+    // ============================================================
+
+    std::cout << "\n\n";
+    std::cout << "============================================================\n";
+    std::cout << "       CHAPTER 6 — MARKET MICROSTRUCTURE METRICS\n";
+    std::cout << "============================================================\n";
+
+    MarketMetrics metrics = calculate_metrics(
+        simulator.order_book,
+        simulator.trades
+    );
+
+    std::cout << "\n===== MARKET METRICS =====\n";
+
+    std::cout << "Best Bid: "
+              << metrics.best_bid << '\n';
+
+    std::cout << "Best Ask: "
+              << metrics.best_ask << '\n';
+
+    std::cout << "Mid Price: "
+              << metrics.mid_price << '\n';
+
+    std::cout << "Spread: "
+              << metrics.spread << '\n';
+
+    std::cout << "Relative Spread: "
+              << metrics.relative_spread << "%\n";
+
+    std::cout << "Bid Depth: "
+              << metrics.bid_depth << '\n';
+
+    std::cout << "Ask Depth: "
+              << metrics.ask_depth << '\n';
+
+    std::cout << "Order Book Imbalance: "
+              << metrics.imbalance << '\n';
+
+    std::cout << "Trade Count: "
+              << metrics.trade_count << '\n';
+
+    std::cout << "Total Traded Volume: "
+              << metrics.trade_volume << '\n';
 
     return 0;
 }

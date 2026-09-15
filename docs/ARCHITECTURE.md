@@ -1,6 +1,6 @@
 # Hybrid C++/Python Limit Order Book Simulator
 
-# Chapter 1–5 — Order Book, Matching Engine, Order Tracking, Modification & Event-Driven Simulation Architecture
+# Chapter 1–6 — Order Book, Matching Engine, Order Tracking, Modification, Event-Driven Simulation & Market Microstructure Metrics
 
 ## 1. Overview
 
@@ -16,6 +16,8 @@ Chapter 4 introduces order modification and replace semantics. Orders can have t
 
 Chapter 5 introduces an event-driven simulation layer. Market actions are represented as timestamped and sequenced events, and a `Simulator` processes those events through the existing `OrderBook`. The simulator provides deterministic event processing, chronological validation, sequence-number validation, event storage, and trade-history collection.
 
+Chapter 6 introduces a read-only market microstructure metrics layer. This layer derives observable quantities from the existing `OrderBook` and simulator trade history without duplicating market state or mutating the underlying engine. It provides top-of-book metrics, depth, imbalance, and basic trade statistics.
+
 The implementation prioritizes correctness, explicit state transitions, clear data flow, and testability before introducing more advanced data structures and performance optimizations.
 
 The current architecture is:
@@ -25,15 +27,20 @@ The current architecture is:
                            |
                            v
                       Simulator
-                           |
-                           v
-                       OrderBook
-                    /      |       \
-               OrderMap  Modify   Matching
-                                  Engine
-                                     |
-                                     v
-                                   Trade
+                      /       \
+                     v         v
+                OrderBook   Trade History
+                /     | \
+               /      |  \
+          OrderMap  Modify Matching
+                            Engine
+                               |
+                               v
+                             Trade
+                               |
+                               v
+                       Microstructure
+                           Metrics
 ```
 
 The underlying order-book architecture remains:
@@ -50,6 +57,19 @@ OrderBook
 OrderMap        Matching Engine
                     |
                   Trade
+```
+
+The metrics layer observes these existing structures:
+
+```text
+OrderBook ──────────────┐
+                        |
+Trade History ──────────┤
+                        v
+                 Metrics Functions
+                        |
+                        v
+                  MarketMetrics
 ```
 
 The C++ implementation serves as the performance-critical core of the project, while Python will later be used for research, analysis, visualization, and quantitative experimentation.
@@ -118,6 +138,16 @@ using Price = std::int64_t;
 ```
 
 Using integer ticks also provides a cleaner foundation for later high-performance market simulation.
+
+The integer representation remains the canonical representation of quoted prices throughout the current architecture.
+
+Floating-point values are introduced only where a derived metric naturally requires them, such as:
+
+```text
+mid-price
+relative spread
+order-book imbalance
+```
 
 ---
 
@@ -232,6 +262,17 @@ Price best_ask();
 
 These operations inspect the current order-book state.
 
+The current empty-book convention is:
+
+```text
+No bid → best_bid() returns 0
+No ask → best_ask() returns 0
+```
+
+Within the simulator, `0` is reserved as a sentinel for the absence of an available quote and is not used as a valid market price.
+
+This convention was retained rather than introducing `std::optional<Price>` because changing the core representation would unnecessarily propagate through the existing Chapters 1–5 API.
+
 ---
 
 ## 7. Bid-Ask Spread
@@ -255,6 +296,12 @@ Spread = 8100 − 8050
 ```
 
 The spread is calculated from the current top of book.
+
+When either side is unavailable, the existing `OrderBook` convention returns:
+
+```text
+Spread = 0
+```
 
 ---
 
@@ -455,8 +502,6 @@ Trade
 └── quantity
 ```
 
-The order identifiers are stored as `OrderId` values rather than complete `Order` objects.
-
 Conceptually:
 
 ```cpp
@@ -467,6 +512,8 @@ struct Trade {
     Quantity quantity;
 };
 ```
+
+The order identifiers are stored as `OrderId` values rather than complete `Order` objects.
 
 For example:
 
@@ -1007,26 +1054,6 @@ struct OrderLocation {
 };
 ```
 
-For example:
-
-```text
-Order ID: 42
-
-Side:  BUY
-Price: 10000
-Index: 3
-```
-
-means that Order 42 is stored:
-
-```text
-BIDS
-  ↓
-Price Level 10000
-  ↓
-orders[3]
-```
-
 The location does not duplicate the full order.
 
 It only stores enough information to find the actual order inside the existing vector-based book structure.
@@ -1110,32 +1137,11 @@ OrderBook
 
 while the `OrderMap` remains an auxiliary lookup structure.
 
-This avoids introducing pointer-based ownership solely for order lookup.
-
 ---
 
 ## 27. Adding Orders to OrderMap
 
 When an order becomes resting liquidity, the `OrderBook` inserts its location into `OrderMap`.
-
-For example:
-
-```text
-BUY Order 10
-
-Price = 10000
-Index = 2
-```
-
-produces:
-
-```text
-OrderMap
-
-10 → { BUY, 10000, 2 }
-```
-
-The same process is used for SELL orders.
 
 The map entry is created only for orders that are actually stored in the book.
 
@@ -1198,20 +1204,6 @@ Therefore the `OrderMap` entries for shifted orders must be updated.
 
 The `update_shifted_indices()` operation performs this synchronization.
 
-Conceptually:
-
-```text
-Erase index k
-      ↓
-Orders after k shift
-      ↓
-Find each shifted order's map entry
-      ↓
-Decrease its stored index by 1
-```
-
-This is necessary to preserve the relationship between the `OrderMap` and the vector-based order storage.
-
 ---
 
 ## 30. OrderMap Invariant
@@ -1224,28 +1216,9 @@ Every resting order in the book has exactly one OrderMap entry.
 Every OrderMap entry corresponds to exactly one resting order.
 ```
 
-More explicitly:
-
-```text
-Book Order
-
-    ↕
-
-OrderMap Entry
-```
-
-Both representations must describe the same currently resting order.
-
-When an order is:
-
-* added → its map entry is added
-* cancelled → its map entry is removed
-* fully filled → its map entry is removed
-* shifted inside a vector → its stored index is updated
-* partially filled → its existing map entry remains valid because its location does not change
-* replaced → its map location is removed and recreated at the new location
-
 This invariant remains central to the correctness of the architecture.
+
+When the book changes, the map must remain synchronized with the actual vector-based order storage.
 
 ---
 
@@ -1253,27 +1226,19 @@ This invariant remains central to the correctness of the architecture.
 
 A partial fill changes an order's quantity but does not change its location inside the price level.
 
-For example:
+Therefore:
 
 ```text
-Price: 10500
-
-Index 0 → Order 7 → Quantity 100
+Partial Fill
+    ↓
+Quantity changes
+    ↓
+Location unchanged
+    ↓
+OrderMap unchanged
 ```
 
-After executing 40 units:
-
-```text
-Index 0 → Order 7 → Quantity 60
-```
-
-The `OrderMap` remains:
-
-```text
-Order 7 → { side, 10500, 0 }
-```
-
-No location update is required because the order remains at the same vector index.
+No location update is required unless the order is subsequently removed.
 
 ---
 
@@ -1289,23 +1254,7 @@ the order is removed from the book.
 
 The `OrderBook` reuses the cancellation path to remove the fully consumed resting order.
 
-Conceptually:
-
-```text
-Full Fill
-   ↓
-cancel(resting_order_id)
-   ↓
-Remove Order
-   ↓
-Remove OrderMap Entry
-   ↓
-Update shifted indices
-   ↓
-Remove empty price level if necessary
-```
-
-This keeps order-removal logic centralized rather than maintaining separate removal implementations for cancellation and matching.
+This keeps order-removal logic centralized.
 
 ---
 
@@ -1339,13 +1288,9 @@ Access orders[index]
 Return Order*
 ```
 
-The `OrderMap` therefore provides the first stage of the lookup while `find_order()` resolves that location into the actual order stored inside the book.
-
 The returned pointer is a temporary access mechanism to the actual vector element.
 
 It must not be retained across operations that can erase or reallocate the underlying vector.
-
-The helper is primarily intended for controlled internal operations such as order modification and direct order inspection.
 
 ---
 
@@ -1421,89 +1366,25 @@ modify(order_id, new_price, new_quantity)
               true
 ```
 
-This creates explicit and deterministic modification semantics.
-
 ---
 
 ## 35. FIFO Rules for Modification
-
-Not every modification should preserve queue priority.
 
 The current rules are:
 
 ### Same Price + Quantity Decrease
 
-If the price remains unchanged and the new quantity is less than or equal to the current quantity, the order is modified in place.
-
-Example:
-
-```text
-Before:
-
-Price 9900
-
-Order 7 → 100
-Order 8 → 200
-```
-
-Modify:
-
-```text
-Order 8 → 150
-```
-
-Result:
-
-```text
-Price 9900
-
-Order 7 → 100
-Order 8 → 150
-```
-
-Order 8 keeps its original position.
-
-Therefore:
-
-```text
-FIFO preserved
-```
+The order is modified in place and FIFO is preserved.
 
 ### Same Price + Quantity Increase
 
-Increasing quantity gives the order additional demand after it already exists in the queue.
-
-Therefore the order loses its original time priority.
-
-Example:
-
-```text
-Before:
-
-Order 7 → index 0
-Order 8 → index 1
-```
-
-After increasing Order 7:
-
-```text
-Order 8 → index 0
-Order 7 → index 1
-```
+The order loses queue priority.
 
 The implementation achieves this through cancellation followed by reinsertion.
 
-Therefore:
-
-```text
-FIFO lost
-```
-
 ### Price Change
 
-A price change places the order into a different price queue.
-
-The order therefore loses its previous time priority.
+A price change moves the order into a different price queue and therefore resets its queue priority.
 
 The implementation performs:
 
@@ -1514,8 +1395,6 @@ cancel(old)
 
 add(replacement)
 ```
-
-The same `OrderId` and `Side` are preserved.
 
 ---
 
@@ -1541,21 +1420,13 @@ performs:
 cancel(order_id)
 ```
 
-and returns:
-
-```text
-true
-```
-
 provided that the order existed.
-
-This ensures that zero-quantity resting orders do not remain in the book.
 
 ---
 
 ## 37. Order ID and Side Preservation
 
-When an order is replaced because its price or quantity increase changes queue priority, the replacement retains:
+When an order is replaced, the replacement retains:
 
 ```text
 Original OrderId
@@ -1569,40 +1440,18 @@ Price
 Quantity
 ```
 
-For example:
-
-```text
-Before:
-
-Order 17
-Side     = BUY
-Price    = 10100
-Quantity = 100
-```
-
-After:
-
-```text
-Order 17
-Side     = BUY
-Price    = 10200
-Quantity = 100
-```
-
-The identity of the order remains unchanged even though its position in the book changes.
+This preserves order identity while allowing its queue position to change.
 
 ---
 
 ## 38. OrderMap During Modification
-
-Because modification may involve vector erase and reinsertion, the `OrderMap` must remain synchronized.
 
 For an in-place modification:
 
 ```text
 Order
    ↓
-Quantity / price updated
+Quantity updated
    ↓
 Location unchanged
    ↓
@@ -1625,7 +1474,7 @@ New location created
 OrderMap entry recreated
 ```
 
-The map therefore remains consistent regardless of whether the modification preserves or loses FIFO priority.
+The map therefore remains consistent regardless of the modification path.
 
 ---
 
@@ -1640,8 +1489,6 @@ The event representation is defined in:
 ```text
 cpp/include/lob/event.hpp
 ```
-
-An `Event` represents one market action that the simulator can process.
 
 The current event types are:
 
@@ -1667,62 +1514,37 @@ Event
 └── new_quantity
 ```
 
-Conceptually:
-
-```cpp
-struct Event {
-    EventType type;
-
-    Timestamp timestamp;
-    Sequence sequence;
-
-    Order order;
-
-    OrderId order_id;
-
-    Price new_price;
-    Quantity new_quantity;
-};
-```
-
-The event contains all possible information required by the three supported event types.
-
 The simulator uses only the fields relevant to the current event:
 
 ```text
 ADD
-
 → order
 
 CANCEL
-
 → order_id
 
 MODIFY
-
 → order_id
 → new_price
 → new_quantity
 ```
 
-This keeps the event representation simple while allowing one event stream to contain different market actions.
-
 ---
 
 ## 40. Timestamp and Sequence Number
 
-Each event contains two ordering fields:
+Each event contains:
 
 ```text
 timestamp
 sequence
 ```
 
-`timestamp` represents the logical time at which the event occurs.
+`timestamp` represents logical simulation time.
 
 `sequence` resolves ordering between multiple events occurring at the same timestamp.
 
-The current sequence model is:
+The current model is:
 
 ```text
 timestamp   sequence
@@ -1730,14 +1552,11 @@ timestamp   sequence
 100         0
 100         1
 100         2
-100         3
 
 101         0
 101         1
-101         2
 
 102         0
-102         1
 ```
 
 The rules are:
@@ -1762,27 +1581,13 @@ last_sequence = event.sequence
 
 Rejected events do not modify simulator state.
 
-This provides deterministic ordering without relying on wall-clock execution time.
-
-The exact timestamp unit is documented separately in the architecture documentation.
+The timestamp unit is documented as logical nanoseconds for the current simulator representation.
 
 ---
 
 ## 41. Simulator
 
 Chapter 5 introduces the `Simulator` abstraction.
-
-The simulator is defined in:
-
-```text
-cpp/include/lob/simulator.hpp
-```
-
-with implementation in:
-
-```text
-cpp/src/simulator.cpp
-```
 
 The simulator contains:
 
@@ -1823,22 +1628,6 @@ The simulator does not replace the `OrderBook`.
 
 Instead, it provides an event-processing layer above it.
 
-The architecture is:
-
-```text
-Event
-  ↓
-Simulator
-  ↓
-OrderBook
-  ↓
-Matching / Cancellation / Modification
-  ↓
-Updated Book
-  ↓
-Trade History
-```
-
 ---
 
 ## 42. Simulator Event Dispatch
@@ -1849,29 +1638,15 @@ The simulator dispatches each event to the appropriate `OrderBook` operation.
 
 An `ADD` event supplies a complete `Order`.
 
-The simulator first rejects duplicate order IDs.
+The simulator rejects duplicate active order IDs.
 
-If the ID is not already present, the simulator passes the order to:
+Otherwise, the simulator calls:
 
 ```cpp
 OrderBook::process_order()
 ```
 
-The returned trades are appended to the simulator's trade history.
-
-Conceptually:
-
-```text
-ADD Event
-   ↓
-Check duplicate OrderId
-   ↓
-process_order()
-   ↓
-Generate Trade(s)
-   ↓
-Store Trade(s)
-```
+and appends any resulting trades to the simulator's trade history.
 
 ### CANCEL
 
@@ -1882,10 +1657,6 @@ The simulator calls:
 ```cpp
 OrderBook::cancel(order_id)
 ```
-
-The `OrderBook` remains responsible for determining whether the order exists and performing the cancellation.
-
-If cancellation fails, the event is rejected.
 
 ### MODIFY
 
@@ -1907,17 +1678,13 @@ OrderBook::modify(
 );
 ```
 
-The `OrderBook` remains responsible for the modification rules.
-
-If modification fails, the event is rejected.
-
-This keeps market-state logic inside `OrderBook` instead of duplicating it inside the simulator.
+The `OrderBook` remains responsible for book-state semantics.
 
 ---
 
 ## 43. Event Validation
 
-Before an event modifies the order book, the simulator validates its ordering state.
+Before an event modifies the order book, the simulator validates temporal ordering and event-specific state.
 
 The validation sequence is:
 
@@ -1956,8 +1723,6 @@ last_sequence
 
 and do not intentionally alter the order book.
 
-This makes event processing deterministic and easier to reason about.
-
 ---
 
 ## 44. Event Stream
@@ -1978,33 +1743,13 @@ The method stores events in insertion order.
 
 The simulator does not automatically sort events during insertion.
 
-The event stream is expected to already be supplied in chronological order.
-
 Ordering validation occurs during processing through:
 
 ```cpp
 process_event()
 ```
 
-This keeps one function responsible for event-order validation rather than duplicating the same rules in `add_event()`.
-
-The stream-processing flow is:
-
-```text
-Simulator
-
-├── events
-│    ├── Event 1
-│    ├── Event 2
-│    ├── Event 3
-│    └── ...
-│
-└── process_events()
-          ↓
-    process_event()
-          ↓
-       OrderBook
-```
+This keeps event-order validation centralized.
 
 ---
 
@@ -2036,11 +1781,9 @@ process_event()
 ...
 ```
 
-The order in the vector is therefore the order in which the simulator attempts to process the events.
+The vector order is therefore the order in which the simulator attempts to process events.
 
 Timestamp and sequence validation determine whether each event is accepted.
-
-This creates a deterministic replay mechanism for the current event representation.
 
 ---
 
@@ -2055,53 +1798,22 @@ Sequence last_sequence;
 
 These represent the temporal state of the most recently accepted event.
 
-For example:
+When a timestamp advances, the sequence is reset according to the event-ordering convention:
 
 ```text
-Event 1:
-timestamp = 100
+timestamp = new timestamp
 sequence  = 0
-
-Simulator:
-current_time = 100
-last_sequence = 0
 ```
 
-Then:
-
-```text
-Event 2:
-timestamp = 100
-sequence  = 1
-
-Simulator:
-current_time = 100
-last_sequence = 1
-```
-
-Then:
-
-```text
-Event 3:
-timestamp = 101
-sequence  = 0
-
-Simulator:
-current_time = 101
-last_sequence = 0
-```
-
-The sequence number therefore resets whenever simulation time advances.
+This makes the event stream deterministic.
 
 ---
 
 ## 47. Duplicate Order Protection
 
-The simulator prevents duplicate `ADD` events from creating two resting orders with the same `OrderId`.
+The simulator prevents duplicate `ADD` events from creating two active resting orders with the same `OrderId`.
 
-Before processing an `ADD`, the simulator checks whether the order ID already exists in the order book.
-
-Conceptually:
+Before processing an `ADD`:
 
 ```text
 ADD Event
@@ -2111,15 +1823,13 @@ Does OrderId already exist?
    └── NO  → Process
 ```
 
-This protects the fundamental identity invariant:
+This protects the identity invariant:
 
 ```text
 One active resting order
     ↔
 One unique OrderId
 ```
-
-The check is performed at the event layer because duplicate `ADD` is an invalid market event, while the existing `OrderBook` remains responsible for ordinary book mutations.
 
 ---
 
@@ -2133,7 +1843,7 @@ std::vector<Trade> trades;
 
 When an accepted `ADD` event generates executions, the resulting trades are appended to this vector.
 
-The trade history therefore represents executions generated during the simulation.
+The trade history represents executions generated during the simulation.
 
 For example:
 
@@ -2150,33 +1860,628 @@ Trade 2
 Simulator::trades
 ```
 
-The trade objects retain:
-
-```text
-incoming_order
-resting_order
-price
-quantity
-```
-
-and preserve execution order.
-
-This provides the foundation for later:
-
-* execution analysis
-* slippage measurement
-* market-impact analysis
-* liquidity analysis
-* P&L calculation
-* microstructure research
+This trade history becomes an input to later execution, slippage, risk, and microstructure analysis.
 
 ---
 
-# Part VI — Current Data Structures and Ownership
+# Part VI — Market Microstructure Metrics
 
-## 49. Current Data Structures
+## 49. Metrics Layer Overview
 
-The current implementation uses simple `std::vector` containers:
+Chapter 6 introduces the first analytical layer above the simulation engine.
+
+The metrics layer is designed to answer:
+
+```text
+What does the current simulated market state look like?
+```
+
+without changing that state.
+
+The architecture is:
+
+```text
+OrderBook ──────────────┐
+                        |
+Trade History ──────────┤
+                        v
+                 Metric Functions
+                        |
+                        v
+                  MarketMetrics
+```
+
+The metrics layer does not own:
+
+* orders
+* price levels
+* the order map
+* simulator events
+* trades
+
+It only reads existing data and computes derived quantities.
+
+This prevents duplicated market state and keeps analytical logic separate from execution logic.
+
+---
+
+## 50. Metrics Files
+
+Chapter 6 introduces:
+
+```text
+cpp/include/lob/metrics.hpp
+cpp/src/metrics.cpp
+tests/cpp/test_metrics.cpp
+```
+
+The metrics implementation is therefore separated from:
+
+```text
+OrderBook
+Simulator
+Matching Engine
+```
+
+The intended responsibility split is:
+
+```text
+OrderBook
+
+    Owns market state
+
+Simulator
+
+    Drives event processing
+    Stores trade history
+
+Metrics
+
+    Observes existing state
+    Computes derived statistics
+```
+
+---
+
+## 51. MarketMetrics Data Structure
+
+`MarketMetrics` is a result container rather than a calculation class.
+
+Conceptually:
+
+```cpp
+struct MarketMetrics {
+    Price best_bid;
+    Price best_ask;
+
+    MidPrice mid_price;
+    Price spread;
+    RelativeSpread relative_spread;
+
+    Quantity bid_depth;
+    Quantity ask_depth;
+
+    Imbalance imbalance;
+
+    TradeCount trade_count;
+    Quantity trade_volume;
+};
+```
+
+The calculation logic remains in standalone functions.
+
+This keeps the result representation simple and prevents analytical behavior from becoming coupled to the state container.
+
+---
+
+## 52. Metric Types
+
+The current derived metric types include:
+
+```cpp
+using MidPrice = double;
+using RelativeSpread = double;
+using Imbalance = double;
+using TradeCount = std::size_t;
+```
+
+Quoted prices and quantities remain integer-based:
+
+```cpp
+Price
+Quantity
+```
+
+Floating-point representation is used only for metrics that require ratios or fractional prices.
+
+---
+
+## 53. Best Bid and Best Ask Metrics
+
+The metrics layer exposes:
+
+```cpp
+Price calculate_best_bid(const OrderBook& book);
+
+Price calculate_best_ask(const OrderBook& book);
+```
+
+These functions delegate directly to:
+
+```cpp
+book.best_bid();
+book.best_ask();
+```
+
+No second copy of top-of-book state is maintained.
+
+---
+
+## 54. Mid-Price
+
+The mid-price is defined as:
+
+```text
+Mid = (Best Bid + Best Ask) / 2
+```
+
+Because prices are integer ticks, the resulting mid-price can fall between ticks.
+
+For example:
+
+```text
+Best Bid = 10000
+Best Ask = 10501
+
+Mid = (10000 + 10501) / 2
+    = 10250.5
+```
+
+Therefore:
+
+```cpp
+MidPrice
+```
+
+is represented using `double`.
+
+When either side of the book is unavailable, the current convention is:
+
+```text
+Mid = 0.0
+```
+
+---
+
+## 55. Absolute Spread
+
+The absolute spread is:
+
+```text
+Spread = Best Ask − Best Bid
+```
+
+The metrics layer delegates this calculation to the existing:
+
+```cpp
+OrderBook::spread()
+```
+
+This avoids duplicating spread logic.
+
+---
+
+## 56. Relative Spread
+
+Relative spread normalizes the absolute spread by the mid-price.
+
+The formula used is:
+
+```text
+Relative Spread
+    =
+(Best Ask − Best Bid)
+--------------------- × 100
+         Mid
+```
+
+The result is expressed as a percentage.
+
+Example:
+
+```text
+Best Bid = 10000
+Best Ask = 10500
+Mid      = 10250
+
+Spread = 500
+
+Relative Spread
+    = (500 / 10250) × 100
+    ≈ 4.87805%
+```
+
+When the mid-price is unavailable:
+
+```text
+Relative Spread = 0.0
+```
+
+This follows the same sentinel convention already established by the order-book layer.
+
+---
+
+## 57. Bid Depth
+
+Bid depth measures the total quantity currently resting on the bid side.
+
+The current implementation sums:
+
+```text
+total_quantity
+```
+
+across all bid price levels.
+
+Conceptually:
+
+```text
+BIDS
+
+10000 → 20
+9900  → 50
+9800  → 75
+
+Bid Depth
+= 20 + 50 + 75
+= 145
+```
+
+The metric is derived from existing `PriceLevel` state.
+
+No second depth structure is maintained.
+
+---
+
+## 58. Ask Depth
+
+Ask depth is calculated analogously.
+
+Conceptually:
+
+```text
+ASKS
+
+10500 → 40
+10600 → 30
+10700 → 20
+
+Ask Depth
+= 40 + 30 + 20
+= 90
+```
+
+The calculation reads:
+
+```cpp
+book.ask_levels()
+```
+
+and aggregates each level's `total_quantity`.
+
+---
+
+## 59. Order Book Imbalance
+
+The current normalized order-book imbalance is:
+
+```text
+Imbalance
+    =
+(Bid Depth − Ask Depth)
+------------------------
+(Bid Depth + Ask Depth)
+```
+
+The result lies conceptually in:
+
+```text
+[-1, +1]
+```
+
+Interpretation:
+
+```text
+Positive
+    → more resting bid liquidity
+
+Negative
+    → more resting ask liquidity
+
+Near 0
+    → relatively balanced depth
+```
+
+Example:
+
+```text
+Bid Depth = 20
+Ask Depth = 80
+
+Imbalance
+= (20 − 80) / (20 + 80)
+= −60 / 100
+= −0.6
+```
+
+When both sides contain zero depth:
+
+```text
+Imbalance = 0.0
+```
+
+This prevents division by zero.
+
+---
+
+## 60. Trade Count
+
+Trade count measures the number of execution records stored in the simulator's trade history.
+
+The current definition is:
+
+```text
+Trade Count = number of Trade objects
+```
+
+For example:
+
+```text
+Trade 1
+Trade 2
+Trade 3
+
+Trade Count = 3
+```
+
+This is distinct from the quantity traded.
+
+A single incoming order consuming three resting orders therefore contributes:
+
+```text
+Trade Count = 3
+```
+
+even if all three executions are part of one parent order.
+
+---
+
+## 61. Trade Volume
+
+Total traded volume is:
+
+```text
+Trade Volume
+    =
+Σ Trade Quantity
+```
+
+For example:
+
+```text
+Trade 1 → 50
+Trade 2 → 70
+Trade 3 → 80
+
+Total Volume = 200
+```
+
+The calculation reads directly from:
+
+```cpp
+std::vector<Trade>
+```
+
+and does not alter trade history.
+
+---
+
+## 62. Complete Metrics Calculation
+
+The convenience function:
+
+```cpp
+MarketMetrics calculate_metrics(
+    const OrderBook& book,
+    const std::vector<Trade>& trades
+);
+```
+
+computes all current Chapter 6 metrics in one operation.
+
+The data flow is:
+
+```text
+OrderBook
+    |
+    +-- best bid
+    +-- best ask
+    +-- spread
+    +-- bid levels
+    +-- ask levels
+    |
+    v
+Metric Calculations
+    |
+    v
+MarketMetrics
+
+Trade History
+    |
+    +-- trade count
+    +-- trade quantities
+    |
+    v
+MarketMetrics
+```
+
+The function returns a value object containing the derived results.
+
+---
+
+## 63. Metrics Layer Does Not Mutate the Book
+
+The metrics API receives the order book as:
+
+```cpp
+const OrderBook&
+```
+
+and trade history as:
+
+```cpp
+const std::vector<Trade>&
+```
+
+This reflects the architectural rule:
+
+```text
+Metrics observe state.
+Metrics do not create or modify market state.
+```
+
+Therefore metric calculations cannot intentionally:
+
+* add orders
+* cancel orders
+* modify orders
+* execute trades
+* change price levels
+* modify the `OrderMap`
+* append to trade history
+
+This separation is explicitly tested.
+
+---
+
+## 64. No Duplicated Order-Book State
+
+The metrics layer intentionally does not create:
+
+```text
+cached_best_bid
+cached_best_ask
+cached_bid_depth
+cached_ask_depth
+```
+
+or another copy of the book.
+
+Instead:
+
+```text
+OrderBook
+    ↓
+Existing source of truth
+
+Metrics
+    ↓
+Derived observation
+```
+
+This avoids creating another synchronization problem.
+
+The order book remains the sole source of truth for market state.
+
+---
+
+## 65. Empty and Missing-Side Conventions
+
+The current metrics layer inherits the existing order-book convention:
+
+```text
+best_bid = 0
+best_ask = 0
+```
+
+when a side is unavailable.
+
+Derived metrics behave as follows:
+
+```text
+Empty Book
+
+best bid        = 0
+best ask        = 0
+mid price       = 0.0
+spread          = 0
+relative spread = 0.0
+bid depth       = 0
+ask depth       = 0
+imbalance       = 0.0
+```
+
+When only one side exists:
+
+```text
+best bid / ask
+    → existing value on available side
+
+mid price
+    → 0.0
+
+relative spread
+    → 0.0
+```
+
+This convention preserves compatibility with the existing Chapters 1–5 architecture.
+
+---
+
+## 66. Current Metrics API
+
+The Chapter 6 metrics API is:
+
+```cpp
+Price calculate_best_bid(const OrderBook& book);
+
+Price calculate_best_ask(const OrderBook& book);
+
+MidPrice calculate_mid_price(const OrderBook& book);
+
+Price calculate_spread(const OrderBook& book);
+
+RelativeSpread calculate_relative_spread(const OrderBook& book);
+
+Quantity calculate_bid_depth(const OrderBook& book);
+
+Quantity calculate_ask_depth(const OrderBook& book);
+
+Imbalance calculate_imbalance(const OrderBook& book);
+
+TradeCount calculate_trade_count(
+    const std::vector<Trade>& trades
+);
+
+Quantity calculate_trade_volume(
+    const std::vector<Trade>& trades
+);
+
+MarketMetrics calculate_metrics(
+    const OrderBook& book,
+    const std::vector<Trade>& trades
+);
+```
+
+The functions are read-only observations of current market state and recent simulation history.
+
+---
+
+# Part VII — Current Data Structures and Ownership
+
+## 67. Current Data Structures
+
+The current implementation uses:
 
 ```cpp
 std::vector<PriceLevel> bids;
@@ -2208,6 +2513,14 @@ std::vector<Event> events;
 std::vector<Trade> trades;
 ```
 
+Metrics are represented as:
+
+```cpp
+MarketMetrics
+```
+
+which contains only derived values.
+
 Therefore the current hierarchy is:
 
 ```text
@@ -2233,15 +2546,21 @@ Simulator
         └── unordered_map<OrderId, OrderLocation>
 ```
 
-The matching engine operates directly on the bid and ask structures.
+The metrics layer sits above this structure:
 
-The `OrderMap` provides indexed access to existing orders without changing ownership.
-
-The `Simulator` owns the event stream and generated trade history while delegating actual market-state mutations to the `OrderBook`.
+```text
+OrderBook + Trade History
+            |
+            v
+      Metric Functions
+            |
+            v
+      MarketMetrics
+```
 
 ---
 
-## 50. Data Ownership
+## 68. Data Ownership
 
 The `OrderBook` owns its bid and ask price levels.
 
@@ -2257,21 +2576,35 @@ OrderBook
 
 The `OrderMap` is owned by the `OrderBook` and acts as an auxiliary index.
 
-It does not own or duplicate the orders themselves.
+The simulator owns:
 
-Trade objects returned by `process_order()` are value objects contained in the returned vector.
+```text
+events
+trades
+```
 
-The simulator stores copies of those trade results in its trade history.
+The metrics layer owns neither market state nor trade history.
 
-Events are also stored as values inside the simulator's event vector.
+`MarketMetrics` is a value object containing derived observations only.
 
-The incoming order is supplied to the matching engine by reference, allowing its remaining quantity to be updated during execution.
+This maintains a strict separation:
+
+```text
+Market State
+    → OrderBook
+
+Simulation History
+    → Simulator
+
+Derived Statistics
+    → MarketMetrics
+```
 
 ---
 
-# Part VII — Current API
+# Part VIII — Current API
 
-## 51. Current OrderBook API
+## 69. Current OrderBook API
 
 The current `OrderBook` exposes operations equivalent to:
 
@@ -2280,11 +2613,11 @@ void add(const Order& order);
 
 bool cancel(OrderId order_id);
 
-Price best_bid();
+Price best_bid() const;
 
-Price best_ask();
+Price best_ask() const;
 
-float spread();
+Price spread() const;
 
 std::vector<Trade> process_order(Order& order);
 
@@ -2303,50 +2636,37 @@ void update_shifted_indices(
     Price price,
     std::size_t erased_index
 );
+
+const std::vector<PriceLevel>& bid_levels() const;
+
+const std::vector<PriceLevel>& ask_levels() const;
 ```
 
 ### Mutations
 
-```cpp
+```text
 add()
 cancel()
 process_order()
 modify()
 ```
 
-These operations can modify the order-book state.
-
-`process_order()` may:
-
-* execute trades
-* modify resting quantities
-* remove filled orders
-* remove empty price levels
-* modify the incoming order's remaining quantity
-* add remaining incoming quantity to the book
-
-`modify()` may:
-
-* change an order in place
-* cancel and replace an order
-* preserve or reset FIFO priority
-* update the `OrderMap`
-* remove an order when quantity becomes zero
-
 ### Queries / Accessors
 
-```cpp
+```text
 best_bid()
 best_ask()
 spread()
 find_order()
+bid_levels()
+ask_levels()
 ```
 
-These inspect or resolve the current order-book state.
+The `bid_levels()` and `ask_levels()` accessors provide read-only access to existing price-level state for analytical calculations such as depth.
 
 ---
 
-## 52. Current OrderMap API
+## 70. Current OrderMap API
 
 The current `OrderMap` exposes:
 
@@ -2366,37 +2686,11 @@ void update(
 );
 ```
 
-The responsibilities are:
-
-```text
-add()
-
-    Add a new OrderId → location mapping
-
-remove()
-
-    Delete a mapping
-
-find()
-
-    Retrieve an order's current location
-
-update()
-
-    Replace a stored location after vector shifts
-```
-
-The `find()` operation returns:
-
-```cpp
-std::optional<OrderLocation>
-```
-
-This allows a missing `OrderId` to be represented explicitly by `std::nullopt`.
+The map remains an auxiliary index rather than an ownership structure.
 
 ---
 
-## 53. Current Simulator API
+## 71. Current Simulator API
 
 The current `Simulator` exposes:
 
@@ -2422,7 +2716,7 @@ std::vector<Event> events;
 std::vector<Trade> trades;
 ```
 
-Responsibilities are divided as follows:
+Responsibilities are:
 
 ```text
 Simulator
@@ -2437,15 +2731,50 @@ process_events()
     Processes the stored event stream sequentially
 ```
 
-The simulator does not directly implement matching, cancellation, or modification semantics.
+---
 
-Those remain responsibilities of the `OrderBook`.
+## 72. Current Metrics API
+
+The Chapter 6 metrics layer exposes:
+
+```cpp
+Price calculate_best_bid(const OrderBook& book);
+
+Price calculate_best_ask(const OrderBook& book);
+
+MidPrice calculate_mid_price(const OrderBook& book);
+
+Price calculate_spread(const OrderBook& book);
+
+RelativeSpread calculate_relative_spread(const OrderBook& book);
+
+Quantity calculate_bid_depth(const OrderBook& book);
+
+Quantity calculate_ask_depth(const OrderBook& book);
+
+Imbalance calculate_imbalance(const OrderBook& book);
+
+TradeCount calculate_trade_count(
+    const std::vector<Trade>& trades
+);
+
+Quantity calculate_trade_volume(
+    const std::vector<Trade>& trades
+);
+
+MarketMetrics calculate_metrics(
+    const OrderBook& book,
+    const std::vector<Trade>& trades
+);
+```
+
+The metrics layer has no market-state mutation operations.
 
 ---
 
-# Part VIII — Order Lifecycle
+# Part IX — Order Lifecycle
 
-## 54. Resting Order Lifecycle
+## 73. Resting Order Lifecycle
 
 ```text
 Order Creation
@@ -2473,7 +2802,7 @@ Price Level Removed if Empty
 
 ---
 
-## 55. Incoming Executable Order
+## 74. Incoming Executable Order
 
 ```text
 Order Creation
@@ -2503,13 +2832,9 @@ into OrderMap               │
                        OrderMap Entry
 ```
 
-This creates the fundamental execution lifecycle required for later market microstructure simulation.
-
 ---
 
-## 56. Modified Order Lifecycle
-
-An order modification has one of three main paths.
+## 75. Modified Order Lifecycle
 
 ```text
 Existing Resting Order
@@ -2533,17 +2858,11 @@ place            replacement         order
 FIFO preserved   FIFO lost            Removed
 ```
 
-The `OrderId` remains unchanged during replacement.
-
-The `OrderMap` must continue to identify the currently active resting representation of that order.
-
 ---
 
-## 57. Event-Driven Order Lifecycle
+## 76. Event-Driven Order Lifecycle
 
-Chapter 5 places the existing order lifecycle inside an event stream.
-
-The complete path is now:
+The complete event-driven path is now:
 
 ```text
 Event
@@ -2565,57 +2884,50 @@ Generated Trade(s)
 Simulator Trade History
 ```
 
-For an `ADD` event:
+---
+
+## 77. Metrics Observation Lifecycle
+
+Chapter 6 adds a read-only analytical path:
 
 ```text
-ADD Event
-   ↓
-Duplicate ID Check
-   ↓
-process_order()
-   ↓
-Matching
-   ↓
-Trade(s)
-   ↓
-Remaining Order
-   ↓
-Book / OrderMap
+OrderBook
+    |
+    +── Best Bid
+    +── Best Ask
+    +── Spread
+    +── Price Levels
+    |
+    v
+Metrics Layer
+
+Trade History
+    |
+    +── Trade Count
+    +── Trade Quantities
+    |
+    v
+Metrics Layer
+
+Metrics Layer
+    |
+    +── Mid Price
+    +── Relative Spread
+    +── Depth
+    +── Imbalance
+    +── Trade Statistics
+    |
+    v
+MarketMetrics
 ```
 
-For a `CANCEL` event:
-
-```text
-CANCEL Event
-   ↓
-Order ID
-   ↓
-OrderBook::cancel()
-   ↓
-OrderMap / Book Updated
-```
-
-For a `MODIFY` event:
-
-```text
-MODIFY Event
-   ↓
-Order ID + New State
-   ↓
-OrderBook::modify()
-   ↓
-In-place modification
-OR
-Cancel + Replace
-   ↓
-Updated Book + OrderMap
-```
+Unlike the order lifecycle, the metrics lifecycle does not modify state.
 
 ---
 
-# Part IX — Testing
+# Part X — Testing
 
-## 58. Chapter 1 Testing
+## 78. Chapter 1 Testing
 
 Chapter 1 includes:
 
@@ -2623,7 +2935,7 @@ Chapter 1 includes:
 tests/cpp/test_order_book.cpp
 ```
 
-The original tests verify:
+The tests verify:
 
 * BUY order insertion
 * SELL order insertion
@@ -2641,7 +2953,7 @@ The original tests verify:
 
 ---
 
-## 59. Chapter 2 Testing
+## 79. Chapter 2 Testing
 
 Chapter 2 includes:
 
@@ -2671,7 +2983,7 @@ The matching-engine test suite verifies:
 
 ---
 
-## 60. Chapter 3 Integration Testing
+## 80. Chapter 3 Integration Testing
 
 Chapter 3 extends:
 
@@ -2701,15 +3013,13 @@ The integration suite verifies:
 * nonexistent cancellation not corrupting the book
 * final consistency between the book and `OrderMap`
 
-These tests establish the central Chapter 3 synchronization invariant.
-
 ---
 
-## 61. Chapter 4 Testing
+## 81. Chapter 4 Testing
 
-Chapter 4 extends the same integration test suite with direct tests for order lookup and modification.
+Chapter 4 extends the same integration suite with direct tests for order lookup and modification.
 
-The current Chapter 4 tests verify:
+The tests verify:
 
 * direct `find_order()` lookup
 * nonexistent `find_order()` returns `nullptr`
@@ -2731,11 +3041,9 @@ The current Chapter 4 tests verify:
 * fully matched modified orders are removed from `OrderMap`
 * FIFO resets after replacement
 
-The Chapter 4 test suite also verifies that modifications performed after previous matching and cancellation operations do not corrupt the existing book state.
-
 ---
 
-## 62. Chapter 5 Simulator Testing
+## 82. Chapter 5 Simulator Testing
 
 Chapter 5 introduces:
 
@@ -2743,9 +3051,7 @@ Chapter 5 introduces:
 tests/cpp/test_simulator.cpp
 ```
 
-The simulator test suite verifies the event-driven layer.
-
-It covers:
+The simulator test suite verifies:
 
 * ADD events
 * CANCEL events
@@ -2764,35 +3070,57 @@ It covers:
 * final simulator timestamp
 * final simulator sequence state
 
-The trade-generation test verifies that `Trade` fields contain the correct order identifiers:
-
-```text
-incoming_order
-resting_order
-price
-quantity
-```
-
-For example:
-
-```text
-Incoming Order: 91
-Resting Order: 90
-Price:          10500
-Quantity:       60
-```
-
 The current Chapter 5 test output is:
 
 ```text
 All Chapter 5 simulator tests passed.
 ```
 
-This establishes the simulator as the next correctness layer above the existing order-book tests.
+---
+
+## 83. Chapter 6 Metrics Testing
+
+Chapter 6 introduces:
+
+```text
+tests/cpp/test_metrics.cpp
+```
+
+The metrics test suite verifies:
+
+* best bid
+* best ask
+* mid-price
+* half-tick mid-price
+* absolute spread
+* relative spread
+* bid depth
+* ask depth
+* order-book imbalance
+* empty-book behavior
+* zero-depth behavior
+* missing bid behavior
+* missing ask behavior
+* trade count
+* trade volume
+* empty trade history
+* multiple trades
+* partial-fill-style trade histories
+* complete `MarketMetrics` calculation
+* non-mutation of order-book state
+* non-mutation of trade history
+
+The Chapter 6 test suite passed successfully:
+
+```text
+All Chapter 6 metrics tests passed!
+```
+
+This establishes the metrics layer as a verified analytical layer above the existing simulator.
 
 ---
 
-## 63. Test Philosophy
+## 84. Test Philosophy
 
 The test suites use a lightweight custom checking mechanism rather than a third-party testing framework.
 
@@ -2816,27 +3144,32 @@ order replacement
 
 Chapter 5 extends this philosophy to the event layer.
 
-The simulator tests verify that:
+Chapter 6 extends it again to the analytical layer.
+
+The metrics tests verify that:
 
 ```text
-Event ordering
-      ↓
-Simulator state
-      ↓
-OrderBook mutations
-      ↓
-Trade history
+Existing Market State
+        ↓
+Metric Calculation
+        ↓
+Derived Results
 ```
 
-remain consistent.
+does not alter the original:
 
-This is important because the simulator is an additional stateful layer above the order book. A correct event-driven simulation must preserve the correctness guarantees already established by Chapters 1–4.
+```text
+OrderBook
+Trade History
+```
+
+This confirms that analytical code remains separated from simulation state.
 
 ---
 
-# Part X — Simulator Demonstration
+# Part XI — Simulator Demonstration
 
-## 64. Simulator Executable
+## 85. Simulator Executable
 
 The simulator executable is:
 
@@ -2844,9 +3177,9 @@ The simulator executable is:
 cpp/app/simulate_main.cpp
 ```
 
-It demonstrates the current order-book, matching, tracking, modification, and event-driven simulation behavior.
+It demonstrates the current order-book, matching, tracking, modification, event-driven simulation, and market-metrics behavior.
 
-The Chapter 5 demonstration creates:
+The demonstration includes:
 
 * `ADD` events
 * `CANCEL` events
@@ -2855,25 +3188,15 @@ The Chapter 5 demonstration creates:
 * aggressive SELL events
 * timestamps
 * sequence numbers
+* final market metrics
 
-The events are added to the simulator and processed as one event stream.
+The simulator processes the events as one deterministic stream.
 
-The demonstration verifies:
+---
 
-* event storage
-* chronological event processing
-* sequence-number handling
-* order cancellation
-* order modification
-* trade generation
-* trade IDs
-* execution prices
-* execution quantities
-* final book state
-* simulator timestamp
-* simulator sequence state
+## 86. Representative Final Simulation State
 
-A representative final state is:
+The Chapter 5 demonstration produces:
 
 ```text
 ===== FINAL SIMULATED BOOK =====
@@ -2891,15 +3214,71 @@ Current Timestamp: 103
 Last Sequence: 0
 ```
 
-This demonstrates that the event stream successfully drives the existing matching and order-management system.
+---
 
-The simulator remains a deterministic demonstration rather than a large-scale market-data generator.
+## 87. Chapter 6 Metrics Demonstration
+
+The simulator now also computes:
+
+```text
+===== MARKET METRICS =====
+Best Bid: 10000
+Best Ask: 10600
+Mid Price: 10300
+Spread: 600
+Relative Spread: 5.82524%
+Bid Depth: 20
+Ask Depth: 80
+Order Book Imbalance: -0.6
+Trade Count: 3
+Total Traded Volume: 200
+```
+
+These values are internally consistent with the final simulated state:
+
+```text
+Mid Price
+= (10000 + 10600) / 2
+= 10300
+```
+
+```text
+Relative Spread
+= (600 / 10300) × 100
+≈ 5.82524%
+```
+
+```text
+Imbalance
+= (20 − 80) / (20 + 80)
+= −0.6
+```
+
+```text
+Trade Volume
+= 50 + 70 + 80
+= 200
+```
+
+The demonstration therefore validates the connection between:
+
+```text
+Simulator
+    ↓
+Final OrderBook
+    +
+Trade History
+    ↓
+Metrics Layer
+    ↓
+MarketMetrics
+```
 
 ---
 
-# Part XI — Current Scope
+# Part XII — Current Scope
 
-## 65. Scope of Chapters 1–5
+## 88. Scope of Chapters 1–6
 
 The current implementation includes:
 
@@ -2953,7 +3332,22 @@ The current implementation includes:
 * rejected-event handling
 * simulator trade history
 * deterministic event processing
-* dedicated Chapter 5 simulator tests
+* best bid / ask metrics
+* mid-price
+* half-tick mid-price support
+* absolute spread metric
+* relative spread metric
+* bid depth
+* ask depth
+* normalized order-book imbalance
+* trade count
+* total trade volume
+* empty-book metric handling
+* missing-side metric handling
+* read-only metrics calculations
+* aggregated `MarketMetrics` result
+* metrics non-mutation guarantees
+* dedicated Chapter 6 metrics tests
 
 The project intentionally does not yet implement:
 
@@ -2961,9 +3355,9 @@ The project intentionally does not yet implement:
 * NASDAQ ITCH parsing
 * historical replay
 * queue-position analytics
-* market-order execution modeling beyond the current limit-order matching engine
-* market-impact models
+* detailed market-order execution modeling
 * slippage models
+* market-impact models
 * inventory management
 * P&L
 * risk metrics
@@ -2971,14 +3365,19 @@ The project intentionally does not yet implement:
 * zero-copy research pipelines
 * performance benchmarking at scale
 * production-level performance optimization
+* time-series snapshot metrics
+* VWAP/TWAP
+* realized volatility
+* volatility forecasting
+* HAR/GARCH integration
 
 These features will be introduced progressively in later chapters.
 
 ---
 
-# Part XII — Current Performance Model
+# Part XIII — Current Performance Model
 
-## 66. Current Performance Model
+## 89. Current Performance Model
 
 The current vector-based implementation is designed primarily for correctness and conceptual clarity.
 
@@ -3016,65 +3415,64 @@ Event storage
 
 Event processing
     → sequential event traversal
+
+Bid / ask depth calculation
+    → traversal of all corresponding price levels
+
+Trade count
+    → O(1) from vector size
+
+Trade volume
+    → linear in trade-history length
+
+Complete metrics calculation
+    → dominated by depth and trade-volume traversal
 ```
 
-The introduction of `OrderMap` removes the need for a full book-wide search when locating an order by ID.
+The metrics layer does not introduce a new mutable cache or duplicate structure for performance.
 
-However, the current architecture still requires index maintenance when erasing from a price-level vector.
-
-For example:
-
-```text
-erase(order at index k)
-        ↓
-orders after k shift
-        ↓
-OrderMap indices must be updated
-```
-
-Similarly, replacement operations that lose priority intentionally pay the cost of cancellation and reinsertion.
-
-The event-driven layer currently prioritizes deterministic processing and clear state transitions rather than maximum throughput.
-
-Therefore the `OrderMap`, modification system, and simulator improve functionality without pretending that all operations are already optimal.
-
-The project establishes a correct architecture first and will optimize specific bottlenecks later using measured performance data.
+Future optimization decisions will therefore be measured rather than assumed.
 
 ---
 
-# Part XIII — Architectural Progression
+# Part XIV — Architectural Progression
 
-## 67. Architecture After Chapter 5
+## 90. Architecture After Chapter 6
 
-The architecture has progressed from basic book representation to execution, indexed order tracking, explicit modification semantics, and finally event-driven simulation.
+The architecture has progressed from basic book representation to execution, indexed order tracking, explicit modification semantics, deterministic event-driven simulation, and finally read-only market microstructure analysis.
 
 ```text
                          Event
                            |
                            v
                       Simulator
-                           |
-                           v
-                       OrderBook
-                    /      |       \
-               OrderMap  Modify   Matching
-                                  Engine
-                                     |
-                                     v
-                                   Trade
+                      /       \
+                     v         v
+                OrderBook   Trade History
+                /     | \
+               /      |  \
+          OrderMap  Modify Matching
+                            Engine
+                               |
+                               v
+                             Trade
+                               |
+                  +------------+------------+
+                  |                         |
+                  v                         v
+             Book State              Trade History
+                  |                         |
+                  +------------+------------+
+                               |
+                               v
+                       Microstructure
+                           Metrics
+                               |
+                               v
+                        MarketMetrics
 ```
 
-The `OrderMap` is an auxiliary index over the underlying vector-based order storage.
-
-It does not replace the order book.
-
-`find_order()` converts the indexed location into access to the actual stored order.
-
-`modify()` uses that lookup to implement deterministic modification semantics while preserving the core ownership model.
-
-The `Simulator` provides the event-driven layer above the order book.
-
-The resulting division of responsibilities is:
+The division of responsibilities is now:
 
 ```text
 Order
@@ -3116,11 +3514,120 @@ Event
 Simulator
 
     Processes events and maintains simulation state
+
+Metrics
+
+    Observes existing market state and trade history
+
+MarketMetrics
+
+    Stores derived market statistics
 ```
 
 ---
 
-## 68. Event-Driven Architecture
+## 91. Six Fundamental Layers
+
+The first six chapters establish six fundamental functions of the simulator.
+
+### Chapter 1 — Represent Liquidity
+
+```text
+Individual Order
+        ↓
+Price Level
+        ↓
+Order Book
+```
+
+### Chapter 2 — Consume Liquidity
+
+```text
+Incoming Order
+        ↓
+Matching Engine
+        ↓
+Trade(s)
+        ↓
+Updated Book
+```
+
+### Chapter 3 — Locate Liquidity
+
+```text
+OrderId
+   ↓
+OrderMap
+   ↓
+OrderLocation
+   ↓
+Actual Order in Book
+```
+
+### Chapter 4 — Modify Liquidity
+
+```text
+OrderId
+   ↓
+find_order()
+   ↓
+modify()
+   ↓
+Preserve FIFO
+
+OR
+
+Cancel + Replace
+   ↓
+Updated Book + OrderMap
+```
+
+### Chapter 5 — Drive Liquidity Through Events
+
+```text
+Event
+   ↓
+Simulator
+   ↓
+Timestamp / Sequence Validation
+   ↓
+OrderBook
+   ↓
+ADD / CANCEL / MODIFY
+   ↓
+Trade(s) / Updated Book
+   ↓
+Simulation State
+```
+
+### Chapter 6 — Measure Market State
+
+```text
+OrderBook + Trade History
+            ↓
+      Metrics Functions
+            ↓
+      MarketMetrics
+```
+
+The six chapters therefore establish:
+
+```text
+Chapter 1 → Represent Liquidity
+Chapter 2 → Consume Liquidity
+Chapter 3 → Locate Liquidity
+Chapter 4 → Modify Liquidity
+Chapter 5 → Drive Liquidity Through Events
+Chapter 6 → Measure Liquidity and Executions
+```
+
+This creates a complete first analytical layer on top of the core market mechanism.
+
+---
+
+# Part XV — Event-Driven Architecture
+
+## 92. Event-Driven Architecture
 
 Chapter 5 adds an additional layer above the existing market mechanism:
 
@@ -3138,7 +3645,17 @@ Book State
 Trade History
 ```
 
-This creates a separation between:
+Chapter 6 observes the resulting state:
+
+```text
+Book State
+     +
+Trade History
+     ↓
+Microstructure Metrics
+```
+
+This creates a clean separation between:
 
 ```text
 What happened?
@@ -3146,23 +3663,126 @@ What happened?
     Event
 ```
 
-and:
-
 ```text
-What does that event do to the market?
+What does the event do?
 
     OrderBook
 ```
 
-The `Simulator` coordinates the two.
+and:
 
-This separation is important for later historical replay because external market data can eventually be transformed into the same `Event` representation and passed through the same simulation engine.
+```text
+What does the resulting market state look like?
+
+    Metrics
+```
 
 ---
 
-## 69. Deterministic Replay Principle
+# Part XVI — Metrics Architecture Principles
 
-Chapter 5 establishes the first version of deterministic event replay.
+## 93. Metrics Are Derived State, Not Primary State
+
+The order book is the source of truth for:
+
+```text
+best prices
+price levels
+orders
+resting quantities
+book liquidity
+```
+
+Trade history is the source of truth for:
+
+```text
+executions
+trade quantities
+trade count
+```
+
+Metrics are derived from these sources:
+
+```text
+Primary State
+     ↓
+Derived Observation
+```
+
+The metrics layer should therefore not become a second market-state store.
+
+---
+
+## 94. Read-Only Analytical Layer
+
+The Chapter 6 architecture intentionally uses:
+
+```cpp
+const OrderBook&
+const std::vector<Trade>&
+```
+
+to reinforce the rule that metrics observe rather than mutate.
+
+This makes the analytical layer easier to reason about and reduces the possibility of analytical code corrupting simulation state.
+
+---
+
+## 95. Integer Prices With Floating Derived Metrics
+
+The project keeps:
+
+```text
+Price
+```
+
+as an integer tick representation.
+
+Metrics that require fractional values use:
+
+```text
+double
+```
+
+This produces the desired separation:
+
+```text
+Quoted Market State
+    → integer ticks
+
+Derived Continuous Value
+    → floating point
+```
+
+The most important example is the mid-price, which may occur at a half-tick.
+
+---
+
+## 96. No Optional Price Migration Yet
+
+The current implementation uses:
+
+```text
+0
+```
+
+as the sentinel for an unavailable bid or ask.
+
+The project intentionally does not migrate the core price API to:
+
+```cpp
+std::optional<Price>
+```
+
+at this stage.
+
+Changing that representation would require broader API changes across the existing order-book, matching, simulator, and testing layers without providing a necessary benefit for the current scope.
+
+---
+
+# Part XVII — Deterministic Replay Principle
+
+## 97. Deterministic Replay Principle
 
 Given the same:
 
@@ -3182,29 +3802,33 @@ Trade History
 Simulation Time
 ```
 
-The ordering mechanism is:
+and therefore the same derived Chapter 6 metrics.
+
+The full deterministic chain is:
 
 ```text
-Timestamp
-    ↓
-Sequence
+Initial State
+     +
+Event Stream
+     ↓
+Simulator
+     ↓
+OrderBook
+     ↓
+Trade History
+     ↓
+Metrics
+     ↓
+MarketMetrics
 ```
 
-The simulator therefore does not depend on real-world wall-clock timing to determine event order.
-
-This establishes an important foundation for later:
-
-* historical replay
-* market-data reconstruction
-* strategy backtesting
-* execution simulation
-* out-of-sample experiments
+This becomes increasingly important as later chapters introduce historical replay and research.
 
 ---
 
-# Part XIV — Planned Architecture
+# Part XVIII — Planned Architecture
 
-## 70. Planned Architecture
+## 98. Planned Architecture
 
 The longer-term architecture is:
 
@@ -3248,7 +3872,15 @@ Execution / Slippage / Risk
 Python Research Layer
 ```
 
-The current event-driven layer now provides the interface between future market-data ingestion and the existing order-book engine.
+The current architecture now has the first version of:
+
+```text
+LOB State
+     ↓
+Microstructure Features
+```
+
+The next stage will build execution-cost analysis on top of that layer.
 
 Eventually:
 
@@ -3262,201 +3894,196 @@ Historical / Synthetic Market Data
           OrderBook
               ↓
       Market Microstructure
+              ↓
+       Execution / Risk
+              ↓
+        Python Research
 ```
 
-will allow the same engine to process both synthetic and historical event streams.
-
-The architecture is intentionally incremental.
-
-Each stage establishes functionality that later stages depend on.
+will allow the same simulation engine to support increasingly realistic quantitative research workflows.
 
 ---
 
-# Part XV — Chapter 1–5 Design Principles
+# Part XIX — Future Chapter Roadmap
 
-## 71. Auxiliary Index Rather Than Replacement Structure
+## 99. Chapter Roadmap
 
-The central design decision of Chapter 3 is that `OrderMap` is an index rather than a second copy of the order book.
-
-The source of truth for order state remains:
+The planned development sequence is:
 
 ```text
+Chapter 1
+Basic Limit Order Book
+        ↓
+Chapter 2
+Matching & Execution Engine
+        ↓
+Chapter 3
+Individual Order Tracking
+        ↓
+Chapter 4
+Order Modification / Replace
+        ↓
+Chapter 5
+Event-Driven Market Simulation
+        ↓
+Chapter 6
+Market Microstructure Metrics
+        ↓
+Chapter 7
+Slippage / Cost / Market Impact
+        ↓
+Chapter 8
+Inventory / P&L / Risk
+        ↓
+Chapter 9
+Historical Data / ITCH Replay
+        ↓
+Chapter 10
+Performance / Benchmarking
+        ↓
+Chapter 11
+C++ → Python Integration
+        ↓
+Chapter 12
+Quant Research / Out-of-Sample Integration
+```
+
+### Chapter 7 — Slippage / Cost / Market Impact
+
+The next analytical layer will use the existing:
+
+```text
+Trade History
 OrderBook
+```
+
+to study:
+
+* execution price relative to a reference price
+* spread costs
+* realized execution cost
+* liquidity consumption
+* multi-level execution
+* market impact
+* adverse price movement after execution
+
+This chapter will build on Chapter 6 rather than duplicating its metrics.
+
+### Chapter 8 — Inventory / P&L / Risk
+
+This stage will introduce:
+
+```text
+position
+cash
+mark-to-market value
+realized P&L
+unrealized P&L
+inventory limits
+risk statistics
+```
+
+### Chapter 9 — Historical Data / ITCH Replay
+
+The event representation will eventually be connected to real historical market-data formats.
+
+The goal is to transform external market-data messages into the simulator's internal event representation and process them through the same deterministic engine.
+
+### Chapter 10 — Performance / Benchmarking
+
+Performance work will be based on measurement:
+
+```text
+Benchmark
     ↓
-PriceLevel
+Profile
     ↓
-Order
-```
-
-The map stores only:
-
-```text
-OrderId
+Identify bottleneck
     ↓
-OrderLocation
+Optimize
+    ↓
+Benchmark again
+    ↓
+Verify correctness
 ```
 
-This avoids duplicating complete order objects and keeps ownership straightforward.
+No major container redesign will be introduced merely for theoretical complexity improvements.
+
+### Chapter 11 — C++ → Python Integration
+
+The C++ engine will eventually expose data and computations to Python for:
+
+```text
+research
+visualization
+statistics
+feature analysis
+experimentation
+```
+
+### Chapter 12 — Quant Research / Out-of-Sample Integration
+
+The final stage will connect the simulator with rigorous quantitative experimentation, including:
+
+```text
+historical data
+feature generation
+hypothesis testing
+train/test separation
+out-of-sample evaluation
+parameter stability
+failure-mode analysis
+```
 
 ---
 
-## 72. Synchronization Invariant
+# Part XX — Current Repository Structure
 
-The correctness of the architecture depends on maintaining:
+## 100. Repository Structure
 
-```text
-Book state ↔ OrderMap state
-```
-
-Whenever the book changes, the map must be updated accordingly.
-
-The major synchronization events are:
+The current repository structure is:
 
 ```text
-add()
-
-    → create map entry
-
-cancel()
-
-    → remove map entry
-    → update shifted entries
-
-partial fill
-
-    → quantity changes
-    → location remains valid
-
-full fill
-
-    → remove map entry
-    → update shifted entries
-
-quantity decrease without priority loss
-
-    → order modified in place
-    → location remains valid
-
-quantity increase
-
-    → cancel existing order
-    → reinsert replacement
-    → create new map location
-
-price change
-
-    → cancel existing order
-    → insert at new price level
-    → create new map location
+hybrid-lob-simulator/
+├── cpp/
+│   ├── include/lob/
+│   │   ├── types.hpp
+│   │   ├── order.hpp
+│   │   ├── price_level.hpp
+│   │   ├── order_book.hpp
+│   │   ├── order_map.hpp
+│   │   ├── trade.hpp
+│   │   ├── event.hpp
+│   │   ├── simulator.hpp
+│   │   └── metrics.hpp
+│   │
+│   ├── src/
+│   │   ├── order_book.cpp
+│   │   ├── order_map.cpp
+│   │   ├── simulator.cpp
+│   │   └── metrics.cpp
+│   │
+│   └── app/
+│       └── simulate_main.cpp
+│
+├── tests/
+│   └── cpp/
+│       ├── test_order_book.cpp
+│       ├── test_matching_engine.cpp
+│       ├── test_simulator.cpp
+│       └── test_metrics.cpp
+│
+└── docs/
+    └── ARCHITECTURE.md
 ```
 
-The integration suite explicitly tests these transitions.
+The metrics layer is therefore integrated as a first-class analytical component without altering the ownership model established in Chapters 1–5.
 
 ---
 
-## 73. Modification Semantics Are Part of Market Structure
+# Part XXI — Design Principles
 
-Order modification is not treated as a generic field update.
-
-The modification rules encode queue-priority behavior:
-
-```text
-Same price + smaller/equal quantity
-        ↓
-Modify in place
-        ↓
-FIFO preserved
-```
-
-versus:
-
-```text
-Quantity increase OR price change
-        ↓
-Cancel + replace
-        ↓
-FIFO lost
-```
-
-This distinction is essential because modifying an order can change its position relative to other participants at the same price.
-
-The simulator therefore models modification as a market-structure event rather than merely a data mutation.
-
----
-
-## 74. Event Ordering Is Part of Simulation State
-
-Chapter 5 introduces a new invariant:
-
-```text
-Accepted events must follow the simulator's temporal ordering rules.
-```
-
-For events at the same timestamp:
-
-```text
-sequence must increase strictly
-```
-
-When time advances:
-
-```text
-sequence must restart at 0
-```
-
-Therefore:
-
-```text
-Timestamp + Sequence
-```
-
-define the deterministic ordering of accepted events.
-
-Rejected events do not advance the simulation clock.
-
-This makes temporal behavior explicit rather than implicit.
-
----
-
-## 75. Simulator as an Orchestration Layer
-
-The `Simulator` does not duplicate the responsibilities of the `OrderBook`.
-
-Instead:
-
-```text
-Simulator
-    |
-    +-- validates event ordering
-    |
-    +-- dispatches event
-    |
-    +-- records generated trades
-    |
-    +-- maintains simulation clock
-```
-
-while:
-
-```text
-OrderBook
-    |
-    +-- owns book state
-    |
-    +-- matches orders
-    |
-    +-- cancels orders
-    |
-    +-- modifies orders
-    |
-    +-- maintains OrderMap
-```
-
-This separation prevents event-processing logic from becoming tightly coupled to the underlying order-book implementation.
-
----
-
-## 76. Why Correctness Comes Before Optimization
+## 101. Correctness Before Optimization
 
 The current architecture deliberately uses straightforward containers and explicit synchronization.
 
@@ -3481,6 +4108,10 @@ Correct Modification Semantics
 
 Correct Event Processing
 
+      +
+
+Correct Microstructure Metrics
+
       =
 
 Reliable Simulation Core
@@ -3488,156 +4119,175 @@ Reliable Simulation Core
 
 Only after these invariants are stable should the project introduce more specialized data structures or performance optimizations.
 
-Future optimization decisions will be justified through:
+---
+
+## 102. Single Source of Truth
+
+The system maintains clear ownership boundaries:
 
 ```text
-Benchmarking
+OrderBook
+    → source of truth for market state
 
-    ↓
+Simulator
+    → source of truth for event stream and generated trade history
 
-Profiling
+Metrics
+    → derived observations only
+```
 
-    ↓
+This principle prevents unnecessary duplication and synchronization problems.
 
-Identify bottleneck
+---
 
-    ↓
+## 103. Explicit Invariants
 
-Change data structure / algorithm
+The main invariants established so far are:
 
-    ↓
+```text
+OrderMap invariant
 
-Benchmark again
+Every resting order
+    ↔
+Exactly one OrderMap entry
+```
 
-    ↓
+```text
+FIFO invariant
+
+Orders at the same price
+    →
+Stored and matched in queue order
+```
+
+```text
+Event invariant
+
+Accepted events
+    →
+Follow timestamp / sequence ordering
+```
+
+```text
+Metrics invariant
+
+Metric calculations
+    →
+Do not mutate market state
+```
+
+These invariants provide the foundation for later replay and research work.
+
+---
+
+## 104. Measured Optimization
+
+The architecture intentionally avoids premature optimization.
+
+Future changes should follow:
+
+```text
+Measure
+
+   ↓
+
+Profile
+
+   ↓
+
+Find bottleneck
+
+   ↓
+
+Change implementation
+
+   ↓
+
+Benchmark
+
+   ↓
 
 Verify correctness
 ```
 
-Performance improvements will therefore be measured rather than assumed.
+The project should become faster because a measured bottleneck was addressed, not because a more complicated data structure merely appears faster in theory.
 
 ---
 
-# Part XVI — Chapter 1–5 Design Principle
+## 105. Architectural Summary
 
-## 77. Five Fundamental Layers
-
-The first five chapters establish five fundamental layers of the simulator.
-
-### Chapter 1 — Represent Liquidity
-
-```text
-Individual Order
-        ↓
-Price Level
-        ↓
-Order Book
-```
-
-Chapter 1 establishes how resting liquidity is stored and queried.
-
-### Chapter 2 — Consume Liquidity
-
-```text
-Incoming Order
-        ↓
-Matching Engine
-        ↓
-Trade(s)
-        ↓
-Updated Book
-```
-
-Chapter 2 establishes how liquidity is consumed when incoming orders cross the book.
-
-### Chapter 3 — Locate Liquidity
-
-```text
-OrderId
-   ↓
-OrderMap
-   ↓
-OrderLocation
-   ↓
-Actual Order in Book
-```
-
-Chapter 3 establishes efficient order identification while preserving the existing ownership model.
-
-### Chapter 4 — Modify Liquidity
-
-```text
-OrderId
-   ↓
-find_order()
-   ↓
-modify()
-   ↓
-Preserve FIFO
-
-OR
-
-Cancel + Replace
-   ↓
-Updated Book + OrderMap
-```
-
-Chapter 4 establishes explicit order-modification semantics and connects order identity, queue priority, and book mutation.
-
-### Chapter 5 — Drive the Market Through Events
-
-```text
-Event
-   ↓
-Simulator
-   ↓
-Timestamp / Sequence Validation
-   ↓
-OrderBook
-   ↓
-ADD / CANCEL / MODIFY
-   ↓
-Trade(s) / Updated Book
-   ↓
-Simulation State
-```
-
-Chapter 5 establishes the event-driven execution layer that can later consume synthetic or historical market events.
-
-Together:
+The first six chapters now establish the complete initial simulation stack:
 
 ```text
                          Event
                            |
                            v
                       Simulator
-                           |
-                           v
-                    +--------------+
-                    |  OrderBook   |
-                    +--------------+
-                     /      |      \
-                    /       |       \
-                   v        v        v
-              OrderMap   Modify   Matching
-                                    Engine
-                                       |
-                                       v
-                                     Trade
+                      /       \
+                     v         v
+                OrderBook   Trade History
+                /     | \
+               /      |  \
+          OrderMap  Modify Matching
+                            Engine
+                               |
+                               v
+                             Trade
+                               |
+                               v
+                     Microstructure Metrics
+                               |
+                               v
+                        MarketMetrics
 ```
 
-The five chapters therefore establish:
+The architectural progression is:
 
 ```text
-Chapter 1 → Represent Liquidity
-Chapter 2 → Consume Liquidity
-Chapter 3 → Locate Liquidity
-Chapter 4 → Modify Liquidity
-Chapter 5 → Drive Liquidity Through Events
+Chapter 1
+Represent Liquidity
+
+Chapter 2
+Consume Liquidity
+
+Chapter 3
+Locate Liquidity
+
+Chapter 4
+Modify Liquidity
+
+Chapter 5
+Drive Liquidity Through Events
+
+Chapter 6
+Measure Liquidity and Executions
 ```
 
-This creates the core market mechanism on which later microstructure, execution, risk, historical replay, Python research, and performance components will depend.
+Together, these chapters establish a correct and deterministic simulation core with a first analytical layer above it.
 
-The implementation deliberately favors correctness, deterministic behavior, and transparency before optimization.
+The implementation deliberately favors:
 
-Future chapters will build on this foundation while preserving the fundamental ownership model, OrderMap synchronization invariant, FIFO semantics, and deterministic event-processing rules established in the first five chapters.
+```text
+correctness
+determinism
+explicit ownership
+transparent state transitions
+testability
+measured optimization
+```
+
+over premature complexity.
+
+Future chapters will extend this foundation toward:
+
+```text
+execution-cost modeling
+risk
+historical market-data replay
+performance engineering
+Python integration
+quantitative research
+out-of-sample validation
+```
+
+while preserving the fundamental ownership model, `OrderMap` synchronization invariant, FIFO semantics, deterministic event-processing rules, and read-only metrics architecture established through Chapters 1–6.
