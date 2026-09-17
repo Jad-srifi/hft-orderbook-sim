@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <unordered_map>
 
 
 enum class Side {
@@ -19,3 +20,8 @@ using RelativeSpread = double;
 using Imbalance = double;
 using MidPrice = double;
 using TradeCount = std::size_t;
+
+using Vwap = double;
+using ExecutionValue = std::int64_t;
+using Slippage = double;
+using ExecutionCost = std::int64_t;

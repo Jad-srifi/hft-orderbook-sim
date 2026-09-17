@@ -1,4 +1,5 @@
 #include <simulator.hpp>
+#include <metrics.hpp>
 #include <event.hpp>
 #include <vector>
 
@@ -24,9 +25,13 @@ void Simulator::process_event(const Event& event) {
             bool order_exist = this->order_book.find_order(event.order.id) != nullptr;
             
             if (!order_exist) {
+                this->reference_prices_by_order[event.order.id] = calculate_mid_price(this->order_book);
+                this->sides_by_order[event.order.id] = event.order.side;
+
                 Order new_order = event.order;
                 
                 std::vector<Trade> trades = this->order_book.process_order(new_order);
+                
                 this->trades.insert(this->trades.end(), trades.begin(), trades.end());
             }
 
@@ -37,6 +42,7 @@ void Simulator::process_event(const Event& event) {
 
         else if (event.type == EventType::CANCEL) {
             bool canceled = this->order_book.cancel(event.order_id);
+
             if (!canceled) {
                 return ;
             }
@@ -44,9 +50,11 @@ void Simulator::process_event(const Event& event) {
 
         else if (event.type == EventType::MODIFY) {
             bool modified = this->order_book.modify(event.order_id, event.new_price, event.new_quantity);
+
             if (!modified) {
                 return ;
             }
+
         }
 
         else {
@@ -67,3 +75,8 @@ void Simulator::process_events() {
         process_event(this->events[i]);
     }
 }
+
+ExecutionResultsByOrder Simulator::calculate_execution_results() {
+    return calculate_execution_results_by_order(this->trades, this->sides_by_order, this->reference_prices_by_order);
+}
+

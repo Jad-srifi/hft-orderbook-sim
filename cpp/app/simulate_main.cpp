@@ -5,10 +5,12 @@
 #include <simulator.hpp>
 #include <event.hpp>
 #include <metrics.hpp>
+#include <execution.hpp>
 
 #include <iostream>
 #include <vector>
 #include <optional>
+#include <unordered_map>
 
 int main() {
 
@@ -724,6 +726,108 @@ int main() {
 
     std::cout << "Total Traded Volume: "
               << metrics.trade_volume << '\n';
+
+
+    // ============================================================
+    // CHAPTER 7 — EXECUTION ANALYSIS
+    // ============================================================
+
+    std::cout << "\n\n";
+    std::cout << "============================================================\n";
+    std::cout << "          CHAPTER 7 — EXECUTION ANALYSIS\n";
+    std::cout << "============================================================\n";
+
+
+    // ------------------------------------------------------------
+    // 20. Calculate execution results
+    // ------------------------------------------------------------
+
+    ExecutionResultsByOrder execution_results =
+        simulator.calculate_execution_results();
+
+
+    // ------------------------------------------------------------
+    // 21. Print execution results
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== EXECUTION RESULTS =====\n";
+
+    for (const auto& entry : execution_results) {
+
+        OrderId order_id = entry.first;
+        const ExecutionResult& result = entry.second;
+
+        Side side = simulator.sides_by_order.at(order_id);
+
+        std::cout
+            << "\nIncoming Order: "
+            << order_id
+            << '\n';
+
+        std::cout
+            << "Side: "
+            << (side == Side::BUY ? "BUY" : "SELL")
+            << '\n';
+
+        std::cout
+            << "Executed Quantity: "
+            << result.executed_quantity
+            << '\n';
+
+        std::cout
+            << "Execution Value: "
+            << result.execution_value
+            << '\n';
+
+        std::cout
+            << "Execution VWAP: "
+            << result.execution_vwap
+            << '\n';
+
+        std::cout
+            << "Arrival Reference Price: "
+            << result.reference_price
+            << '\n';
+
+        std::cout
+            << "Slippage: "
+            << result.slippage
+            << '\n';
+
+        std::cout
+            << "Execution Cost: "
+            << result.execution_cost
+            << '\n';
+
+        std::cout
+            << "Liquidity Consumed: "
+            << result.liquidity_consumed
+            << '\n';
+    }
+
+
+    // ------------------------------------------------------------
+    // 22. Verify orders with no executions
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== EXECUTION CONTEXT =====\n";
+
+    for (const auto& entry : simulator.sides_by_order) {
+
+        OrderId order_id = entry.first;
+
+        Side side = entry.second;
+
+        std::cout
+            << "Order "
+            << order_id
+            << " | Side: "
+            << (side == Side::BUY ? "BUY" : "SELL")
+            << " | Arrival Midpoint: "
+            << simulator.reference_prices_by_order.at(order_id)
+            << '\n';
+    }
+
 
     return 0;
 }
