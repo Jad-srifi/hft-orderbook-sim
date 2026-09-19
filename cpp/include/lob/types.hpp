@@ -25,3 +25,8 @@ using Vwap = double;
 using ExecutionValue = std::int64_t;
 using Slippage = double;
 using ExecutionCost = std::int64_t;
+
+using Position = std::int64_t;
+using AvgCost = double;
+using Cash = double;
+using Pnl = double;

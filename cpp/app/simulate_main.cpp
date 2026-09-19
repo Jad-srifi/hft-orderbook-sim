@@ -6,11 +6,13 @@
 #include <event.hpp>
 #include <metrics.hpp>
 #include <execution.hpp>
+#include <inventory_model.hpp>
 
 #include <iostream>
 #include <vector>
 #include <optional>
 #include <unordered_map>
+#include <iomanip>
 
 int main() {
 
@@ -31,7 +33,6 @@ int main() {
     book.add(order4);
 
     std::cout << "===== INITIAL BOOK =====\n";
-
     std::cout << "Best Ask: "
               << book.best_ask() << '\n';
 
@@ -66,7 +67,6 @@ int main() {
             << '\n';
     }
     else {
-
         std::cout << "Order 2 not found\n";
     }
 
@@ -502,16 +502,24 @@ int main() {
     // ============================================================
 
     std::cout << "\n\n";
-    std::cout << "============================================================\n";
-    std::cout << "        CHAPTER 5 — EVENT-DRIVEN SIMULATION\n";
-    std::cout << "============================================================\n";
+
+    std::cout
+        << "============================================================\n";
+
+    std::cout
+        << "        CHAPTER 5 — EVENT-DRIVEN SIMULATION\n";
+
+    std::cout
+        << "============================================================\n";
 
 
     // ------------------------------------------------------------
     // 10. Create a fresh Simulator
     // ------------------------------------------------------------
 
-    Simulator simulator;
+    // Chapter 8: Simulator now requires initial cash.
+
+    Simulator simulator(10000000.0);
 
 
     // ------------------------------------------------------------
@@ -686,9 +694,15 @@ int main() {
     // ============================================================
 
     std::cout << "\n\n";
-    std::cout << "============================================================\n";
-    std::cout << "       CHAPTER 6 — MARKET MICROSTRUCTURE METRICS\n";
-    std::cout << "============================================================\n";
+
+    std::cout
+        << "============================================================\n";
+
+    std::cout
+        << "       CHAPTER 6 — MARKET MICROSTRUCTURE METRICS\n";
+
+    std::cout
+        << "============================================================\n";
 
     MarketMetrics metrics = calculate_metrics(
         simulator.order_book,
@@ -697,35 +711,55 @@ int main() {
 
     std::cout << "\n===== MARKET METRICS =====\n";
 
-    std::cout << "Best Bid: "
-              << metrics.best_bid << '\n';
+    std::cout
+        << "Best Bid: "
+        << metrics.best_bid
+        << '\n';
 
-    std::cout << "Best Ask: "
-              << metrics.best_ask << '\n';
+    std::cout
+        << "Best Ask: "
+        << metrics.best_ask
+        << '\n';
 
-    std::cout << "Mid Price: "
-              << metrics.mid_price << '\n';
+    std::cout
+        << "Mid Price: "
+        << metrics.mid_price
+        << '\n';
 
-    std::cout << "Spread: "
-              << metrics.spread << '\n';
+    std::cout
+        << "Spread: "
+        << metrics.spread
+        << '\n';
 
-    std::cout << "Relative Spread: "
-              << metrics.relative_spread << "%\n";
+    std::cout
+        << "Relative Spread: "
+        << metrics.relative_spread
+        << "%\n";
 
-    std::cout << "Bid Depth: "
-              << metrics.bid_depth << '\n';
+    std::cout
+        << "Bid Depth: "
+        << metrics.bid_depth
+        << '\n';
 
-    std::cout << "Ask Depth: "
-              << metrics.ask_depth << '\n';
+    std::cout
+        << "Ask Depth: "
+        << metrics.ask_depth
+        << '\n';
 
-    std::cout << "Order Book Imbalance: "
-              << metrics.imbalance << '\n';
+    std::cout
+        << "Order Book Imbalance: "
+        << metrics.imbalance
+        << '\n';
 
-    std::cout << "Trade Count: "
-              << metrics.trade_count << '\n';
+    std::cout
+        << "Trade Count: "
+        << metrics.trade_count
+        << '\n';
 
-    std::cout << "Total Traded Volume: "
-              << metrics.trade_volume << '\n';
+    std::cout
+        << "Total Traded Volume: "
+        << metrics.trade_volume
+        << '\n';
 
 
     // ============================================================
@@ -733,9 +767,15 @@ int main() {
     // ============================================================
 
     std::cout << "\n\n";
-    std::cout << "============================================================\n";
-    std::cout << "          CHAPTER 7 — EXECUTION ANALYSIS\n";
-    std::cout << "============================================================\n";
+
+    std::cout
+        << "============================================================\n";
+
+    std::cout
+        << "          CHAPTER 7 — EXECUTION ANALYSIS\n";
+
+    std::cout
+        << "============================================================\n";
 
 
     // ------------------------------------------------------------
@@ -755,9 +795,11 @@ int main() {
     for (const auto& entry : execution_results) {
 
         OrderId order_id = entry.first;
+
         const ExecutionResult& result = entry.second;
 
-        Side side = simulator.sides_by_order.at(order_id);
+        Side side =
+            simulator.sides_by_order.at(order_id);
 
         std::cout
             << "\nIncoming Order: "
@@ -807,7 +849,7 @@ int main() {
 
 
     // ------------------------------------------------------------
-    // 22. Verify orders with no executions
+    // 22. Verify execution context
     // ------------------------------------------------------------
 
     std::cout << "\n===== EXECUTION CONTEXT =====\n";
@@ -827,6 +869,133 @@ int main() {
             << simulator.reference_prices_by_order.at(order_id)
             << '\n';
     }
+
+
+    // ============================================================
+    // CHAPTER 8 — INVENTORY / P&L / RISK
+    // ============================================================
+
+    std::cout << "\n\n";
+
+    std::cout
+        << "============================================================\n";
+
+    std::cout
+        << "          CHAPTER 8 — INVENTORY / P&L / RISK\n";
+
+    std::cout
+        << "============================================================\n";
+
+
+    // ------------------------------------------------------------
+    // 23. Access InventoryModel
+    // ------------------------------------------------------------
+
+    InventoryModel& inventory =
+        simulator.get_inventory_model();
+
+
+    // ------------------------------------------------------------
+    // 24. Calculate current mark price
+    // ------------------------------------------------------------
+
+    // Reuse the existing Chapter 6 midpoint calculation.
+    // Mark price is used for valuation only.
+
+    MidPrice mark_price =
+        calculate_mid_price(simulator.order_book);
+
+
+    // ------------------------------------------------------------
+    // 25. Calculate inventory / P&L / risk measures
+    // ------------------------------------------------------------
+
+    Position position =
+        inventory.get_position();
+
+    Cash cash =
+        inventory.get_cash();
+
+    AvgCost avg_cost =
+        inventory.get_avg_cost();
+
+    Pnl realized_pnl =
+        inventory.get_realized_pnl();
+
+    Pnl unrealized_pnl =
+        inventory.unrealized_pnl(mark_price);
+
+    Cash portfolio_value =
+        inventory.portfolio_value(mark_price);
+
+    Cash inventory_exposure =
+        inventory.inventory_exposure(mark_price);
+
+
+    // ------------------------------------------------------------
+    // 26. Print inventory state
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== INVENTORY STATE =====\n";
+
+    std::cout
+        << "Position: "
+        << position
+        << '\n';
+
+    std::cout
+        << "Cash: "
+        << cash
+        << '\n';
+
+    std::cout
+        << "Average Cost: "
+        << avg_cost
+        << '\n';
+
+    std::cout
+        << "Mark Price: "
+        << mark_price
+        << '\n';
+
+
+    // ------------------------------------------------------------
+    // 27. Print P&L
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== P&L =====\n";
+
+    std::cout
+        << "Realized P&L: "
+        << realized_pnl
+        << '\n';
+
+    std::cout
+        << "Unrealized P&L: "
+        << unrealized_pnl
+        << '\n';
+
+    std::cout
+        << "Total P&L: "
+        << realized_pnl + unrealized_pnl
+        << '\n';
+
+
+    // ------------------------------------------------------------
+    // 28. Print portfolio value and exposure
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== RISK / VALUATION =====\n";
+
+    std::cout
+        << "Portfolio Value: "
+        << portfolio_value
+        << '\n';
+
+    std::cout
+        << "Inventory Exposure: "
+        << inventory_exposure
+        << '\n';
 
 
     return 0;
