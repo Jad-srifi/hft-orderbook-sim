@@ -2,11 +2,13 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <array>
 
 
 enum class Side {
     BUY,
-    SELL
+    SELL,
+    NONE
 };
 
 using OrderId = std::uint64_t;
@@ -30,3 +32,13 @@ using Position = std::int64_t;
 using AvgCost = double;
 using Cash = double;
 using Pnl = double;
+
+using Timestamp = std::uint64_t;
+using OrderReferenceNumber = std::uint64_t;
+using MatchNumber = std::uint64_t;
+using StockLocate = std::uint64_t;
+using Shares = std::uint64_t;
+using StockSymbol = std::array<char, 8>;
+using ItchPrice = std::uint32_t;
+using MPID = std::array<char, 4>;
+using TrackingNumber = std::uint16_t;

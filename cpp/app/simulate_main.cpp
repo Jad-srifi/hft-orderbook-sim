@@ -7,12 +7,61 @@
 #include <metrics.hpp>
 #include <execution.hpp>
 #include <inventory_model.hpp>
+#include <itch_message.hpp>
+#include <itch_parser.hpp>
+#include <itch_mapper.hpp>
+#include <itch_replay.hpp>
 
 #include <iostream>
 #include <vector>
 #include <optional>
 #include <unordered_map>
 #include <iomanip>
+
+void append_be(std::vector<Byte>& bytes, std::uint64_t value, std::size_t count)
+{
+    for (std::size_t i = count; i > 0; --i) {
+        bytes.push_back(
+            static_cast<Byte>((value >> ((i - 1) * 8)) & 0xFF)
+        );
+    }
+}
+
+std::vector<Byte> make_A(StockLocate stock_locate, TrackingNumber tracking_number, Timestamp timestamp, OrderReferenceNumber order_reference, Side side,
+                        Shares shares, const StockSymbol& stock_symbol, ItchPrice price) {
+    
+    std::vector<Byte> bytes;
+    bytes.push_back('A');
+
+    append_be(bytes, stock_locate, 2);
+    append_be(bytes, tracking_number, 2);
+    append_be(bytes, timestamp, 6);
+    append_be(bytes, order_reference, 8);
+
+    bytes.push_back(side == Side::BUY ? 'B' : 'S');
+
+    append_be(bytes, shares, 4);
+
+    for (char c : stock_symbol)
+        bytes.push_back(static_cast<Byte>(c));
+
+    append_be(bytes, price, 4);
+
+    return bytes;
+}
+
+std::vector<Byte> make_X(StockLocate stock_locate, TrackingNumber tracking_number, Timestamp timestamp, OrderReferenceNumber order_reference, Shares cancelled_shares) {
+    std::vector<Byte> bytes;
+    bytes.push_back('X');
+
+    append_be(bytes, stock_locate, 2);
+    append_be(bytes, tracking_number, 2);
+    append_be(bytes, timestamp, 6);
+    append_be(bytes, order_reference, 8);
+    append_be(bytes, cancelled_shares, 4);
+
+    return bytes;
+}
 
 int main() {
 
@@ -996,6 +1045,156 @@ int main() {
         << "Inventory Exposure: "
         << inventory_exposure
         << '\n';
+
+    // ============================================================
+    // CHAPTER 9 — ITCH REPLAY
+    // ============================================================
+
+    std::cout << "\n\n";
+    std::cout
+        << "============================================================\n";
+    std::cout
+        << "                CHAPTER 9 — ITCH REPLAY\n";
+    std::cout
+        << "============================================================\n";
+
+    // Fresh book for historical reconstruction.
+    // Do NOT reuse the simulation book above.
+    OrderBook replay_book;
+
+    StockLocate selected_stock = 10;
+
+    ItchMapper mapper(selected_stock);
+    ItchReplay replay(replay_book);
+
+    // ------------------------------------------------------------
+    // 29. Synthetic ITCH messages
+    // ------------------------------------------------------------
+
+    StockSymbol symbol = {'T', 'E', 'S', 'T', ' ', ' ', ' ', ' '};
+
+    // Add BUY 100 @ 100.50
+    std::vector<Byte> itch_A1 = make_A(
+        selected_stock,
+        1,
+        100000000,
+        5001,
+        Side::BUY,
+        100,
+        symbol,
+        10050
+    );
+
+    // Add SELL 80 @ 101.00
+    std::vector<Byte> itch_A2 = make_A(
+        selected_stock,
+        2,
+        100000001,
+        5002,
+        Side::SELL,
+        80,
+        symbol,
+        10100
+    );
+
+    // Cancel 40 shares of BUY order 5001
+    std::vector<Byte> itch_X = make_X(
+        selected_stock,
+        3,
+        100000002,
+        5001,
+        40
+    );
+
+    // ------------------------------------------------------------
+    // 30. Replay ITCH messages
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== ITCH REPLAY =====\n";
+
+    const std::vector<std::vector<Byte>> itch_messages = {
+        itch_A1,
+        itch_A2,
+        itch_X
+    };
+
+    for (const auto& raw_message : itch_messages) {
+
+        auto parsed = get_type_parser(raw_message);
+
+        if (std::holds_alternative<ParseError>(parsed)) {
+            std::cout << "Parser error\n";
+            continue;
+        }
+
+        const ItchMessage& message =
+            std::get<ItchMessage>(parsed);
+
+        auto mapped = mapper.map(message);
+
+        if (std::holds_alternative<ReplayError>(mapped)) {
+
+            ReplayError error =
+                std::get<ReplayError>(mapped);
+
+            if (error == ReplayError::IgnoredMessage)
+                continue;
+
+            std::cout << "Mapper error\n";
+            continue;
+        }
+
+        const ReplayOperation& operation =
+            std::get<ReplayOperation>(mapped);
+
+        auto replay_result = replay.apply(operation);
+
+        if (std::holds_alternative<ReplayError>(replay_result)) {
+            std::cout << "Replay error\n";
+            continue;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 31. Print reconstructed historical book
+    // ------------------------------------------------------------
+
+    std::cout << "\n===== RECONSTRUCTED HISTORICAL BOOK =====\n";
+
+    std::cout
+        << "Best Bid: "
+        << replay_book.best_bid()
+        << '\n';
+
+    std::cout
+        << "Best Ask: "
+        << replay_book.best_ask()
+        << '\n';
+
+    std::cout
+        << "Spread: "
+        << replay_book.spread()
+        << '\n';
+
+    // Check remaining quantities
+
+    Order* replay_buy = replay_book.find_order(5001);
+
+    if (replay_buy != nullptr) {
+        std::cout
+            << "Order 5001 remaining quantity: "
+            << replay_buy->quantity
+            << '\n';
+    }
+
+    Order* replay_sell = replay_book.find_order(5002);
+
+    if (replay_sell != nullptr) {
+        std::cout
+            << "Order 5002 remaining quantity: "
+            << replay_sell->quantity
+            << '\n';
+    }
 
 
     return 0;
