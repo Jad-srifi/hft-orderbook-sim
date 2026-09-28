@@ -207,10 +207,10 @@ An `Order` represents a single order submitted to the market.
 
 Each order contains:
 
-* `OrderId` — unique identifier for the order
-* `Side` — `BUY` or `SELL`
-* `Price` — integer price representation
-* `Quantity` — number of units currently remaining
+- `OrderId` — unique identifier for the order
+- `Side` — `BUY` or `SELL`
+- `Price` — integer price representation
+- `Quantity` — number of units currently remaining
 
 Conceptually:
 
@@ -1513,12 +1513,12 @@ The metrics layer is read-only.
 
 It does not own:
 
-* orders
-* price levels
-* order-map state
-* simulator events
-* trade history
-* inventory state
+- orders
+- price levels
+- order-map state
+- simulator events
+- trade history
+- inventory state
 
 The same functions can be applied to a reconstructed historical `OrderBook` where the input data and analytical purpose justify doing so.
 
@@ -4133,19 +4133,19 @@ tests/cpp/test_order_book.cpp
 
 The tests verify:
 
-* BUY insertion
-* SELL insertion
-* multiple orders at the same price
-* price-level aggregation
-* total quantity
-* best bid
-* best ask
-* spread
-* order cancellation
-* quantity updates
-* empty price-level removal
-* empty-book state
-* invalid/nonexistent cancellation
+- BUY insertion
+- SELL insertion
+- multiple orders at the same price
+- price-level aggregation
+- total quantity
+- best bid
+- best ask
+- spread
+- order cancellation
+- quantity updates
+- empty price-level removal
+- empty-book state
+- invalid/nonexistent cancellation
 
 ---
 
@@ -4159,23 +4159,23 @@ tests/cpp/test_matching_engine.cpp
 
 The tests verify:
 
-* BUY execution
-* SELL execution
-* full fills
-* partial fills
-* multiple resting orders
-* FIFO execution
-* multiple price levels
-* remaining incoming quantity
-* remaining resting quantity
-* empty price-level removal
-* non-crossing BUY orders
-* non-crossing SELL orders
-* correct incoming order ID
-* correct resting order ID
-* correct execution price
-* correct execution quantity
-* correct final book state
+- BUY execution
+- SELL execution
+- full fills
+- partial fills
+- multiple resting orders
+- FIFO execution
+- multiple price levels
+- remaining incoming quantity
+- remaining resting quantity
+- empty price-level removal
+- non-crossing BUY orders
+- non-crossing SELL orders
+- correct incoming order ID
+- correct resting order ID
+- correct execution price
+- correct execution quantity
+- correct final book state
 
 ---
 
@@ -4183,23 +4183,23 @@ The tests verify:
 
 The order-book integration suite verifies:
 
-* initial `OrderMap` population
-* BUY order tracking
-* SELL order tracking
-* middle-order cancellation
-* shifted-index updates
-* first-order cancellation
-* empty price-level removal
-* partial fills preserving `OrderMap`
-* full fills removing `OrderMap` entries
-* shifted indices after full fills
-* multi-level BUY matching
-* new orders after deletions
-* multi-level SELL matching
-* SELL partial fills
-* cancellation after matching
-* nonexistent cancellation
-* final consistency between book and `OrderMap`
+- initial `OrderMap` population
+- BUY order tracking
+- SELL order tracking
+- middle-order cancellation
+- shifted-index updates
+- first-order cancellation
+- empty price-level removal
+- partial fills preserving `OrderMap`
+- full fills removing `OrderMap` entries
+- shifted indices after full fills
+- multi-level BUY matching
+- new orders after deletions
+- multi-level SELL matching
+- SELL partial fills
+- cancellation after matching
+- nonexistent cancellation
+- final consistency between book and `OrderMap`
 
 ---
 
@@ -4207,25 +4207,25 @@ The order-book integration suite verifies:
 
 The modification integration suite verifies:
 
-* direct `find_order()` lookup
-* nonexistent lookup
-* same-price quantity decrease preserving FIFO
-* same-price quantity increase resetting FIFO
-* price modification resetting FIFO
-* modified quantity
-* modified price
-* preserved Order ID
-* preserved side
-* correct `OrderMap` price
-* correct `OrderMap` index
-* shifted indices after replacement
-* old price-level removal
-* zero quantity as cancellation
-* nonexistent modification returning `false`
-* modification after partial fill
-* modified orders remaining executable
-* removal of fully matched modified orders
-* FIFO reset after replacement
+- direct `find_order()` lookup
+- nonexistent lookup
+- same-price quantity decrease preserving FIFO
+- same-price quantity increase resetting FIFO
+- price modification resetting FIFO
+- modified quantity
+- modified price
+- preserved Order ID
+- preserved side
+- correct `OrderMap` price
+- correct `OrderMap` index
+- shifted indices after replacement
+- old price-level removal
+- zero quantity as cancellation
+- nonexistent modification returning `false`
+- modification after partial fill
+- modified orders remaining executable
+- removal of fully matched modified orders
+- FIFO reset after replacement
 
 ---
 
@@ -4239,22 +4239,22 @@ tests/cpp/test_simulator.cpp
 
 The suite verifies:
 
-* ADD events
-* CANCEL events
-* MODIFY events
-* duplicate ADD rejection
-* invalid CANCEL rejection
-* invalid MODIFY rejection
-* backward timestamp rejection
-* same-timestamp sequence ordering
-* duplicate sequence rejection
-* lower sequence rejection
-* new timestamp requiring sequence `0`
-* generated trade history
-* multiple event processing
-* complete event-stream processing
-* final simulator timestamp
-* final simulator sequence state
+- ADD events
+- CANCEL events
+- MODIFY events
+- duplicate ADD rejection
+- invalid CANCEL rejection
+- invalid MODIFY rejection
+- backward timestamp rejection
+- same-timestamp sequence ordering
+- duplicate sequence rejection
+- lower sequence rejection
+- new timestamp requiring sequence `0`
+- generated trade history
+- multiple event processing
+- complete event-stream processing
+- final simulator timestamp
+- final simulator sequence state
 
 ---
 
@@ -4268,27 +4268,27 @@ tests/cpp/test_metrics.cpp
 
 The suite verifies:
 
-* best bid
-* best ask
-* mid-price
-* half-tick mid-price
-* absolute spread
-* relative spread
-* bid depth
-* ask depth
-* order-book imbalance
-* empty-book behavior
-* zero-depth behavior
-* missing bid behavior
-* missing ask behavior
-* trade count
-* trade volume
-* empty trade history
-* multiple trades
-* partial-fill-style histories
-* complete `MarketMetrics` calculation
-* non-mutation of order-book state
-* non-mutation of trade history
+- best bid
+- best ask
+- mid-price
+- half-tick mid-price
+- absolute spread
+- relative spread
+- bid depth
+- ask depth
+- order-book imbalance
+- empty-book behavior
+- zero-depth behavior
+- missing bid behavior
+- missing ask behavior
+- trade count
+- trade volume
+- empty trade history
+- multiple trades
+- partial-fill-style histories
+- complete `MarketMetrics` calculation
+- non-mutation of order-book state
+- non-mutation of trade history
 
 ---
 
@@ -4302,25 +4302,25 @@ tests/cpp/test_execution.cpp
 
 The suite verifies:
 
-* empty trade history
-* single trade
-* multiple trades
-* multi-level execution
-* executed quantity
-* execution value
-* VWAP
-* BUY slippage
-* SELL slippage
-* zero-execution slippage
-* execution cost
-* liquidity consumed
-* trade grouping
-* multiple incoming orders
-* different sides
-* different arrival references
-* per-order execution results
-* result lookup by `OrderId`
-* orders with no trades being excluded from execution results
+- empty trade history
+- single trade
+- multiple trades
+- multi-level execution
+- executed quantity
+- execution value
+- VWAP
+- BUY slippage
+- SELL slippage
+- zero-execution slippage
+- execution cost
+- liquidity consumed
+- trade grouping
+- multiple incoming orders
+- different sides
+- different arrival references
+- per-order execution results
+- result lookup by `OrderId`
+- orders with no trades being excluded from execution results
 
 The suite protects the separation between:
 
@@ -4343,36 +4343,36 @@ tests/cpp/test_inventory_model.cpp
 
 The suite verifies:
 
-* initial state
-* single BUY
-* multiple BUYs
-* weighted-average long cost
-* fractional long average cost
-* partial long closure
-* full long closure with profit
-* full long closure with loss
-* single SELL opening a short
-* multiple SELLs
-* weighted-average short cost
-* fractional short average cost
-* partial short closure
-* full short closure with profit
-* full short closure with loss
-* long → short crossing
-* short → long crossing
-* adding to a new short after crossing
-* adding to a new long after crossing
-* cost-basis reset after reaching flat
-* zero-quantity trades
-* long unrealized P&L
-* short unrealized P&L
-* long portfolio value
-* short portfolio value
-* long inventory exposure
-* short inventory exposure
-* valuation non-mutation
-* long accounting identity
-* short accounting identity
+- initial state
+- single BUY
+- multiple BUYs
+- weighted-average long cost
+- fractional long average cost
+- partial long closure
+- full long closure with profit
+- full long closure with loss
+- single SELL opening a short
+- multiple SELLs
+- weighted-average short cost
+- fractional short average cost
+- partial short closure
+- full short closure with profit
+- full short closure with loss
+- long → short crossing
+- short → long crossing
+- adding to a new short after crossing
+- adding to a new long after crossing
+- cost-basis reset after reaching flat
+- zero-quantity trades
+- long unrealized P&L
+- short unrealized P&L
+- long portfolio value
+- short portfolio value
+- long inventory exposure
+- short inventory exposure
+- valuation non-mutation
+- long accounting identity
+- short accounting identity
 
 The tests specifically protect the following accounting invariants:
 
@@ -4606,32 +4606,32 @@ It demonstrates the integrated system across Chapters 1–8 and contains a synth
 
 The demonstration includes:
 
-* order insertion
-* order cancellation
-* shifted-index behavior
-* matching
-* order modification
-* event-driven simulation
-* aggressive BUY execution
-* aggressive SELL execution
-* market microstructure metrics
-* execution VWAP
-* execution slippage
-* execution cost
-* liquidity consumed
-* arrival-reference capture
-* inventory updates
-* cash accounting
-* average cost
-* realized P&L
-* unrealized P&L
-* portfolio valuation
-* inventory exposure
-* synthetic ITCH message parsing
-* ITCH semantic mapping
-* historical replay
-* reconstructed historical best bid / ask / spread
-* historical order quantity reduction
+- order insertion
+- order cancellation
+- shifted-index behavior
+- matching
+- order modification
+- event-driven simulation
+- aggressive BUY execution
+- aggressive SELL execution
+- market microstructure metrics
+- execution VWAP
+- execution slippage
+- execution cost
+- liquidity consumed
+- arrival-reference capture
+- inventory updates
+- cash accounting
+- average cost
+- realized P&L
+- unrealized P&L
+- portfolio valuation
+- inventory exposure
+- synthetic ITCH message parsing
+- ITCH semantic mapping
+- historical replay
+- reconstructed historical best bid / ask / spread
+- historical order quantity reduction
 
 ---
 
@@ -4777,172 +4777,172 @@ This demonstrates that historical cancellation changes the resting order quantit
 
 The current implementation includes:
 
-* order representation
-* integer price representation
-* price levels
-* bid and ask sides
-* best bid
-* best ask
-* spread
-* order insertion
-* order cancellation
-* FIFO order storage
-* limit-order matching
-* BUY execution
-* SELL execution
-* full fills
-* partial fills
-* multiple price levels
-* trade generation
-* remaining order quantity
-* empty order and price-level removal
-* deterministic order-book behavior
-* dedicated tests
-* `OrderId` tracking
-* `OrderLocation`
-* `OrderMap`
-* shifted-index synchronization
-* OrderMap/book consistency invariant
-* direct order resolution
-* order quantity modification
-* order price modification
-* FIFO-preserving quantity decreases
-* FIFO-resetting quantity increases
-* FIFO-resetting price changes
-* order replacement
-* Order ID preservation
-* side preservation
-* zero-quantity modification as cancellation
-* modification-related OrderMap synchronization
-* event representation
-* event types
-* event timestamps
-* event sequence numbers
-* event storage
-* event-stream processing
-* simulator state
-* chronological validation
-* sequence-number validation
-* duplicate ADD protection
-* rejected-event handling
-* simulator trade history
-* deterministic event processing
-* best bid / ask metrics
-* mid-price
-* half-tick mid-price support
-* absolute spread metric
-* relative spread metric
-* bid depth
-* ask depth
-* normalized order-book imbalance
-* trade count
-* total trade volume
-* empty-book metric handling
-* missing-side metric handling
-* read-only metrics calculations
-* aggregated `MarketMetrics`
-* metrics non-mutation guarantees
-* execution value
-* executed quantity
-* VWAP
-* arrival midpoint
-* BUY slippage
-* SELL slippage
-* execution cost
-* liquidity consumed
-* incoming-order trade grouping
-* per-order execution context
-* per-order execution results
-* execution-result aggregation
-* zero-execution handling
-* execution-analysis tests
-* Simulator integration of execution context
-* Simulator execution-result aggregation
-* persistent inventory position
-* signed long/short inventory
-* cash accounting
-* weighted-average long cost basis
-* weighted-average short cost basis
-* realized P&L
-* unrealized P&L
-* mark-to-market valuation
-* portfolio value
-* inventory exposure
-* long → short crossing
-* short → long crossing
-* cost-basis reset after flattening
-* zero-quantity inventory no-op
-* valuation non-mutation
-* inventory accounting invariants
-* InventoryModel simulator integration
-* Nasdaq TotalView-ITCH 5.0 protocol target
-* binary ITCH message representation
-* decoded ITCH message variant
-* A message parsing
-* F message parsing
-* E message parsing
-* C message parsing
-* X message parsing
-* D message parsing
-* U message parsing
-* R message parsing
-* S message parsing
-* big-endian decoding
-* integer price decoding
-* timestamp decoding
-* security filtering
-* malformed message handling
-* incomplete message handling
-* invalid-length handling
-* invalid-side handling
-* ITCH semantic mapping
-* replay error representation
-* AddOperation
-* ReduceOperation
-* RemoveOperation
-* ReplaceOperation
-* historical add reconstruction
-* historical partial cancellation
-* historical execution reduction
-* historical deletion
-* historical replacement
-* duplicate historical Add protection
-* historical lifecycle validation
-* selected-security filtering
-* deterministic replay
-* no historical re-matching
-* existing OrderBook reuse
-* synthetic Chapter 9 replay demonstration
-* Chapter 9 end-to-end tests
-* 37/37 Chapter 9 tests passing
+- order representation
+- integer price representation
+- price levels
+- bid and ask sides
+- best bid
+- best ask
+- spread
+- order insertion
+- order cancellation
+- FIFO order storage
+- limit-order matching
+- BUY execution
+- SELL execution
+- full fills
+- partial fills
+- multiple price levels
+- trade generation
+- remaining order quantity
+- empty order and price-level removal
+- deterministic order-book behavior
+- dedicated tests
+- `OrderId` tracking
+- `OrderLocation`
+- `OrderMap`
+- shifted-index synchronization
+- OrderMap/book consistency invariant
+- direct order resolution
+- order quantity modification
+- order price modification
+- FIFO-preserving quantity decreases
+- FIFO-resetting quantity increases
+- FIFO-resetting price changes
+- order replacement
+- Order ID preservation
+- side preservation
+- zero-quantity modification as cancellation
+- modification-related OrderMap synchronization
+- event representation
+- event types
+- event timestamps
+- event sequence numbers
+- event storage
+- event-stream processing
+- simulator state
+- chronological validation
+- sequence-number validation
+- duplicate ADD protection
+- rejected-event handling
+- simulator trade history
+- deterministic event processing
+- best bid / ask metrics
+- mid-price
+- half-tick mid-price support
+- absolute spread metric
+- relative spread metric
+- bid depth
+- ask depth
+- normalized order-book imbalance
+- trade count
+- total trade volume
+- empty-book metric handling
+- missing-side metric handling
+- read-only metrics calculations
+- aggregated `MarketMetrics`
+- metrics non-mutation guarantees
+- execution value
+- executed quantity
+- VWAP
+- arrival midpoint
+- BUY slippage
+- SELL slippage
+- execution cost
+- liquidity consumed
+- incoming-order trade grouping
+- per-order execution context
+- per-order execution results
+- execution-result aggregation
+- zero-execution handling
+- execution-analysis tests
+- Simulator integration of execution context
+- Simulator execution-result aggregation
+- persistent inventory position
+- signed long/short inventory
+- cash accounting
+- weighted-average long cost basis
+- weighted-average short cost basis
+- realized P&L
+- unrealized P&L
+- mark-to-market valuation
+- portfolio value
+- inventory exposure
+- long → short crossing
+- short → long crossing
+- cost-basis reset after flattening
+- zero-quantity inventory no-op
+- valuation non-mutation
+- inventory accounting invariants
+- InventoryModel simulator integration
+- Nasdaq TotalView-ITCH 5.0 protocol target
+- binary ITCH message representation
+- decoded ITCH message variant
+- A message parsing
+- F message parsing
+- E message parsing
+- C message parsing
+- X message parsing
+- D message parsing
+- U message parsing
+- R message parsing
+- S message parsing
+- big-endian decoding
+- integer price decoding
+- timestamp decoding
+- security filtering
+- malformed message handling
+- incomplete message handling
+- invalid-length handling
+- invalid-side handling
+- ITCH semantic mapping
+- replay error representation
+- AddOperation
+- ReduceOperation
+- RemoveOperation
+- ReplaceOperation
+- historical add reconstruction
+- historical partial cancellation
+- historical execution reduction
+- historical deletion
+- historical replacement
+- duplicate historical Add protection
+- historical lifecycle validation
+- selected-security filtering
+- deterministic replay
+- no historical re-matching
+- existing OrderBook reuse
+- synthetic Chapter 9 replay demonstration
+- Chapter 9 end-to-end tests
+- 37/37 Chapter 9 tests passing
 
 The project intentionally does not yet implement:
 
-* historical NASDAQ ITCH full-file replay
-* production-level historical data ingestion
-* ITCH P messages
-* ITCH Q messages
-* ITCH B messages
-* complete multi-security reconstruction
-* advanced queue-position analytics
-* sophisticated market-order execution models
-* causal market-impact estimation
-* advanced inventory-risk controls
-* portfolio-level multi-asset accounting
-* derivatives
-* margin / leverage
-* VaR
-* CVaR
-* advanced volatility-risk models
-* Python bindings
-* zero-copy research pipelines
-* performance benchmarking at scale
-* production-level optimization
-* time-series snapshot metrics
-* TWAP
-* realized volatility
-* volatility forecasting
-* HAR/GARCH integration
+- historical NASDAQ ITCH full-file replay
+- production-level historical data ingestion
+- ITCH P messages
+- ITCH Q messages
+- ITCH B messages
+- complete multi-security reconstruction
+- advanced queue-position analytics
+- sophisticated market-order execution models
+- causal market-impact estimation
+- advanced inventory-risk controls
+- portfolio-level multi-asset accounting
+- derivatives
+- margin / leverage
+- VaR
+- CVaR
+- advanced volatility-risk models
+- Python bindings
+- zero-copy research pipelines
+- performance benchmarking at scale
+- production-level optimization
+- time-series snapshot metrics
+- TWAP
+- realized volatility
+- volatility forecasting
+- HAR/GARCH integration
 
 Chapter 9 therefore provides a first protocol-aware historical reconstruction layer without attempting to build a complete production-grade market-data engine.
 
@@ -7806,3 +7806,1192 @@ Quantitative Research
 ```
 
 This preserves the established vector/value architecture while extending it with a protocol-aware historical replay layer that feeds the same `OrderBook` rather than creating a separate market-state implementation.
+
+# APPEND-ONLY UPDATE — CURRENT STATE AFTER CHAPTER 9 SAMPLE TOOLING
+
+This section is intentionally appended to the existing architectural record.
+
+Everything above this line is preserved exactly as it existed in the 7,808-line source document.
+
+Do not rewrite, compress, reorder, summarize, or replace any earlier section when maintaining this document.
+
+The purpose of this append-only section is to record the work completed after the original Chapter 1–9 architecture record, especially the diagnostic ITCH sample subsystem and the transition into Chapter 10.
+
+---
+
+## A1. Canonical Maintenance Rule
+
+The long-form architecture/master context is append-only.
+
+The established 7,808 lines are the historical architectural record and must remain intact.
+
+Future updates must use this rule:
+
+```text
+Existing document
+        ↓
+PRESERVE EXACTLY
+        ↓
+Append new verified information
+        ↓
+Do not rewrite previous chapters
+```
+
+When a future discussion needs to update the context:
+
+- do not regenerate the document from a compressed summary
+- do not merge sections by paraphrasing old content
+- do not remove supposedly redundant historical details
+- do not reorder the old chapter record
+- do not shorten the document for convenience
+- append the new state at the end
+
+This is especially important because the document is used as a continuity record for future technical discussions.
+
+---
+
+## A2. Current Chapter Status
+
+The project status is now:
+
+```text
+Chapter 1  — Basic Limit Order Book                  ✅ COMPLETE
+Chapter 2  — Matching & Execution Engine              ✅ COMPLETE
+Chapter 3  — Individual Order Tracking                ✅ COMPLETE
+Chapter 4  — Order Modification / Replace             ✅ COMPLETE
+Chapter 5  — Event-Driven Market Simulation            ✅ COMPLETE
+Chapter 6  — Market Microstructure Metrics             ✅ COMPLETE
+Chapter 7  — Execution / Slippage / Cost Analysis      ✅ COMPLETE
+Chapter 8  — Inventory / P&L / Risk                     ✅ COMPLETE
+Chapter 9  — Historical Nasdaq ITCH Replay              ✅ COMPLETE
+Chapter 10 — Performance / Benchmarking                 ← CURRENT
+Chapter 11 — C++ → Python Integration                    planned
+Chapter 12 — Quantitative Research / OOS                planned
+```
+
+Chapters 1–9 are considered complete and working unless a new concrete correctness defect is discovered.
+
+Do not restart Chapter 9 merely because new diagnostic tooling is being documented.
+
+The project has now entered Chapter 10.
+
+---
+
+## A3. Chapter 9 Final Semantic Architecture
+
+The completed historical-data path is:
+
+```text
+Nasdaq TotalView-ITCH 5.0 BinaryFILE
+                ↓
+        ItchFileReader
+                ↓
+          raw payload
+                ↓
+          ItchParser
+                ↓
+         ItchMessage
+                ↓
+          ItchMapper
+                ↓
+       ReplayOperation
+                ↓
+           ItchReplay
+                ↓
+          existing
+          OrderBook
+```
+
+The crucial semantic distinction is:
+
+```text
+Synthetic simulation
+    → hypothetical participant actions
+    → Simulator
+    → matching engine
+
+Historical replay
+    → observed exchange messages
+    → ItchReplay
+    → direct historical state mutation
+```
+
+Historical execution and cancellation messages must not be treated as fresh synthetic orders and re-matched through the matching engine.
+
+The existing `OrderBook` remains the central market-state representation.
+
+---
+
+## A4. Completed Chapter 9 Message Coverage
+
+The current ITCH message family covered by the parser/replay architecture is:
+
+```text
+A  — Add Order
+F  — Add Order with MPID
+E  — Order Executed
+C  — Order Executed with Price
+X  — Order Cancel
+D  — Order Delete
+U  — Order Replace
+R  — Stock Directory
+S  — System Event
+```
+
+The parser's `ParseError` family includes:
+
+```text
+UnknownMessageType
+IncompleteMessage
+InvalidMessageLength
+MalformedMessage
+```
+
+The parser operates on bytes using:
+
+```cpp
+using Byte = std::uint8_t;
+```
+
+Protocol integers are decoded in big-endian order with bounds checking.
+
+Typed parsing is performed before downstream stock-specific filtering or replay mapping.
+
+---
+
+## A5. Critical Stock Locate Rule
+
+A previous correctness issue was caused by assuming that the same raw byte offsets represented Stock Locate for every ITCH message type.
+
+That assumption is invalid.
+
+The canonical rule is now:
+
+```text
+raw payload
+    ↓
+parse according to message type
+    ↓
+typed ItchMessage
+    ↓
+extract stock_locate from the typed message
+    ↓
+stock-specific filtering
+```
+
+Never use:
+
+```text
+payload[1]
+payload[2]
+```
+
+as a universal Stock Locate extraction mechanism.
+
+Stock Locate positions are message-format-specific.
+
+This distinction is required for correct stock-specific replay and diagnostic sample generation.
+
+---
+
+## A6. ITCH Mapping Rules
+
+The semantic mapper translates decoded protocol messages into historical replay operations.
+
+Current operation family:
+
+```text
+AddOperation
+ReduceOperation
+RemoveOperation
+ReplaceOperation
+```
+
+Current mapping:
+
+```text
+A / F  → AddOperation
+E / C  → ReduceOperation
+X      → ReduceOperation
+D      → RemoveOperation
+U      → ReplaceOperation
+R / S  → IgnoredMessage
+```
+
+`ReplayError` includes:
+
+```text
+UnknownOrder
+InvalidLifecycle
+InvalidQuantity
+IgnoredMessage
+```
+
+For historical cancel (`X`), the message quantity means:
+
+```text
+quantity_to_remove
+```
+
+not:
+
+```text
+new_target_quantity
+```
+
+Therefore replay must subtract the cancelled shares from the currently resting quantity.
+
+For historical delete (`D`), the complete order is removed.
+
+For historical replace (`U`), the old order identity is removed and the new order identity is created using the new quantity and price.
+
+The mapper may not know the replacement side directly in the same way the original order does; replay recovers the side from the existing old order before removal.
+
+---
+
+## A7. Completed Real Historical Data Path
+
+The targeted historical dataset is:
+
+```text
+Nasdaq TotalView-ITCH 5.0
+Date: 2019-10-18
+File: S101819-v50.txt.gz
+```
+
+The decompressed form is:
+
+```text
+S101819-v50.txt
+```
+
+The file framing is:
+
+```text
+2-byte big-endian payload length
+            ↓
+        payload bytes
+            ↓
+repeat
+```
+
+A zero-length record indicates termination.
+
+`ItchFileReader` is responsible for:
+
+```text
+record framing
+exact payload reads
+EOF handling
+truncation detection
+zero-length termination
+finished state
+```
+
+The parser is responsible for protocol interpretation.
+
+The replay layer is responsible for historical state transition semantics.
+
+The real historical replay executable is:
+
+```text
+replay_itch_main
+```
+
+CLI form:
+
+```text
+replay_itch_main <file> <stock_locate> <N|all>
+```
+
+Examples:
+
+```text
+replay_itch_main S101819-v50.txt 123 1000
+replay_itch_main S101819-v50.txt 123 all
+```
+
+Do not expose local Windows absolute paths in public usage examples.
+
+---
+
+## A8. ITCH Test Status
+
+The Chapter 9 ITCH test suite reached:
+
+```text
+37 / 37 tests passed
+```
+
+Final status reported:
+
+```text
+All ITCH tests passed.
+```
+
+The file-reader coverage includes dedicated cases for:
+
+```text
+clean EOF
+empty file
+finished state
+incomplete length field
+multiple messages
+single message
+payload preservation
+truncated payload
+zero-length termination
+```
+
+Chapter 9 should therefore be treated as a completed subsystem rather than reopened by default.
+
+---
+
+## A9. Additional Diagnostic Sample Subsystem
+
+After the core ITCH replay path was completed, a dedicated diagnostic sample subsystem was added.
+
+Its purpose is not to replace the historical replay architecture.
+
+Its purpose is to create small, deterministic, inspectable binary datasets that make parser, mapper, and replay behavior easier to diagnose and benchmark.
+
+New files:
+
+```text
+cpp/include/lob/itch_sample_reader.hpp
+cpp/src/itch_sample_reader.cpp
+cpp/app/create_itch_samples_main.cpp
+cpp/app/inspect_itch_sample_main.cpp
+```
+
+The diagnostic subsystem is separate from the main historical replay executable.
+
+---
+
+## A10. Frozen Sample Dataset Set
+
+Generated sample files are stored under:
+
+```text
+data/itch/2019-10-18/sample/
+```
+
+Current generated datasets:
+
+```text
+stock_100.bin
+stock_1000.bin
+stock_10000.bin
+stock_100000.bin
+stock_123_all.bin
+```
+
+The finite samples represent target-count requests.
+
+The actual number of records present may be smaller than the nominal target when the source data does not contain enough qualifying records.
+
+Therefore:
+
+```text
+target_count
+```
+
+must not be interpreted as a guarantee that exactly that many records exist.
+
+`stock_123_all.bin` is the diagnostic all-qualifying dataset for the selected Stock Locate.
+
+---
+
+## A11. Frozen Sample Header Format
+
+The frozen sample header is exactly 28 bytes.
+
+Its conceptual structure is:
+
+```text
+uint32 magic
+uint32 version
+uint8  dataset_kind
+uint8  reserved
+uint8  reserved
+uint8  reserved
+uint64 stock_locate
+uint64 target_count
+```
+
+Current magic value:
+
+```text
+0x484C4F42
+```
+
+Current format version:
+
+```text
+1
+```
+
+Dataset kind identifiers are frozen as:
+
+```text
+Stock100       = 1
+Stock1000      = 2
+Stock10000     = 3
+Stock100000    = 4
+Stock123All    = 5
+```
+
+The reserved bytes exist in the frozen header and must remain part of the format.
+
+---
+
+## A12. Serialized Message Type IDs
+
+The frozen sample format serializes the decoded message category using stable identifiers:
+
+```text
+AddOrder                 = 1
+AddOrderMPID             = 2
+OrderExecuted            = 3
+OrderExecutedWithPrice   = 4
+OrderCancel              = 5
+OrderDelete              = 6
+OrderReplace             = 7
+StockDirectory           = 8
+SystemEvent              = 9
+Other                   = 255
+```
+
+The serialized operation identifiers are:
+
+```text
+Add       = 1
+Reduce    = 2
+Remove    = 3
+Replace   = 4
+Ignored   = 5
+Error     = 255
+```
+
+These identifiers are part of the diagnostic file contract and should not be changed casually.
+
+---
+
+## A13. Sample Record Schema
+
+Each diagnostic sample record contains:
+
+```text
+record_number
+message_type
+message_class_name
+raw_payload
+message_fields
+operation_type
+mapping_result
+```
+
+Field schemas currently used for individually serialized supported message classes are:
+
+```text
+AddOrder              → 8 fields
+AddOrderMPID          → 9 fields
+OrderExecuted         → 6 fields
+OrderExecutedWithPrice→ 8 fields
+OrderCancel           → 5 fields
+OrderDelete           → 4 fields
+OrderReplace          → 7 fields
+```
+
+Unsupported message classes use:
+
+```text
+message_fields = not serialized individually
+```
+
+The raw payload remains available for low-level inspection even when a complete field-level serialization is not provided.
+
+---
+
+## A14. Sample Reader Design
+
+`ItchSampleReader` reads the frozen sample format only.
+
+It is not responsible for:
+
+```text
+OrderBook mutation
+matching
+historical replay
+parser semantics
+```
+
+Its responsibilities are limited to:
+
+```text
+open sample file
+read header
+validate frozen header fields
+read record framing
+decode serialized record fields
+return records
+track finished state
+report reader errors
+```
+
+Current reader state includes:
+
+```text
+std::ifstream file
+bool finished = false
+bool open_failed = false
+bool debug_mode = false
+```
+
+Constructor form:
+
+```cpp
+explicit ItchSampleReader(const std::string& file_path, bool debug_mode = false);
+```
+
+Header result:
+
+```text
+variant<SampleHeader, SampleReaderError>
+```
+
+Record result:
+
+```text
+variant<SampleRecord, SampleReaderError>
+```
+
+Current `SampleReaderError` family is:
+
+```text
+CanNotOpenFile
+InvalidMagic
+UnsupportedVersion
+InvalidDatasetKind
+UnexpectedEOF
+InvalidMessageType
+InvalidOperationType
+InvalidFieldLength
+ReadFailure
+```
+
+---
+
+## A15. Sample Serialization Integrity Fix
+
+A real serialization bug was found during diagnostic sample inspection around record 98.
+
+The initial implementation performed fragmented direct writes while constructing a record.
+
+That allowed an `AddOrderMPID` record to become truncated at the field level.
+
+The reader consequently reported an error equivalent to:
+
+```text
+InvalidFieldLength
+```
+
+The implemented fix was architectural at the serialization boundary:
+
+```text
+build the complete record in memory
+        ↓
+validate the complete serialized structure
+        ↓
+write the completed record atomically
+```
+
+After the fix, representative records around the previous failure point decoded correctly.
+
+Representative record 98:
+
+```text
+message type = AddOrderMPID
+stock_locate = 1
+tracking = 0
+timestamp = 32421087866637
+order_ref = 5459185
+side = BUY
+shares = 100
+symbol = A
+price = 587300
+mpid = OHOS
+```
+
+The corresponding mapper result is:
+
+```text
+AddOperation
+    order_id = 5459185
+    side = BUY
+    quantity = 100
+    price = 587300
+```
+
+This serialization fix must remain in place.
+
+Do not revert to fragmented record construction for convenience.
+
+---
+
+## A16. Inspector CLI
+
+The diagnostic sample inspector is:
+
+```text
+inspect_itch_sample_main
+```
+
+Canonical CLI:
+
+```text
+inspect_itch_sample_main <sample_file> <N|all> [on|off]
+```
+
+Examples:
+
+```text
+inspect_itch_sample_main stock_100.bin 10
+inspect_itch_sample_main stock_100.bin 10 on
+inspect_itch_sample_main stock_100.bin 10 off
+inspect_itch_sample_main stock_123_all.bin all
+inspect_itch_sample_main stock_123_all.bin all on
+```
+
+The optional debug argument has the semantics:
+
+```text
+omitted → off
+on      → on
+off     → off
+anything else → invalid debug mode
+```
+
+For example:
+
+```text
+inspect_itch_sample_main stock_100.bin 100 ono
+```
+
+must report the debug-mode error rather than silently accepting the invalid value.
+
+The usage text intentionally uses the generic executable name:
+
+```text
+inspect_itch_sample_main
+```
+
+rather than displaying `argv[0]`.
+
+This avoids printing a machine-specific absolute Windows path in the usage message.
+
+The final source-level usage-path fix was applied to `print_usage(...)` so that the usage line is canonical and path-independent.
+
+That final change must still be compiled/tested locally if it has not yet been executed after editing.
+
+---
+
+## A17. Inspector / Reader Responsibility Separation
+
+The implementation must preserve a clean translation-unit boundary.
+
+`inspect_itch_sample_main.cpp` contains:
+
+```text
+main
+CLI parsing
+usage output
+display helpers
+```
+
+`itch_sample_reader.cpp` contains:
+
+```text
+ItchSampleReader implementation
+sample-header reading
+record decoding
+sample-reader error handling
+```
+
+The previous multiple-definition linker error demonstrated why reader implementation must not accidentally be duplicated inside the inspector translation unit.
+
+The correct build links one inspector translation unit and one reader implementation translation unit.
+
+Example direct build:
+
+```bash
+rm -f build/inspect_itch_sample_main.exe
+g++ -std=c++17 -Wall -Wextra -pedantic \
+-Icpp/include/lob \
+cpp/app/inspect_itch_sample_main.cpp \
+cpp/src/itch_sample_reader.cpp \
+-o build/inspect_itch_sample_main.exe
+```
+
+Canonical execution examples:
+
+```bash
+./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100
+./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100 on
+./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100 ono
+```
+
+---
+
+## A18. Diagnostic Tooling Does Not Replace Replay
+
+The sample writer, sample reader, and inspector are diagnostic infrastructure.
+
+They do not become the canonical historical market-data architecture.
+
+The canonical production-oriented path remains:
+
+```text
+real ITCH file
+    ↓
+ItchFileReader
+    ↓
+ItchParser
+    ↓
+ItchMapper
+    ↓
+ItchReplay
+    ↓
+OrderBook
+```
+
+The sample path is:
+
+```text
+real ITCH file
+    ↓
+create_itch_samples_main
+    ↓
+frozen diagnostic sample
+    ↓
+ItchSampleReader
+    ↓
+inspect_itch_sample_main
+```
+
+This diagnostic branch exists to make protocol and semantic behavior reproducible on small inputs.
+
+---
+
+## A19. Data Documentation
+
+`data.md` has been created to document the historical-data tree and diagnostic sample subsystem.
+
+It records:
+
+```text
+data directory structure
+raw ITCH data
+decompressed ITCH data
+sample datasets
+processed-data area
+frozen sample format
+sample generator
+sample reader
+sample inspector
+Stock Locate extraction rule
+integrity expectations
+```
+
+The documentation must preserve the distinction between:
+
+```text
+raw historical source data
+```
+
+and:
+
+```text
+derived diagnostic datasets
+```
+
+Generated sample data is not the authoritative historical source.
+
+---
+
+# A20. Chapter 10 — Performance / Benchmarking
+
+The project is now entering:
+
+```text
+Chapter 10 — Performance / Benchmarking
+```
+
+The first task is not optimization.
+
+The first task is measurement.
+
+The required sequence is:
+
+```text
+Baseline measurement
+        ↓
+Profiling
+        ↓
+Identify actual bottleneck
+        ↓
+Change the bottleneck
+        ↓
+Re-measure
+        ↓
+Run correctness tests
+        ↓
+Check determinism
+```
+
+No major data-structure redesign should occur before baseline measurement unless a concrete correctness problem requires it.
+
+---
+
+## A21. Chapter 10 Performance Scope
+
+The initial benchmark program should be designed to measure the current architecture rather than a hypothetical optimized architecture.
+
+Potential metrics include:
+
+```text
+events processed / second
+messages processed / second
+trades generated / second
+insert cost
+cancel cost
+modify / replace cost
+match cost
+historical replay throughput
+sample reading throughput
+memory footprint
+```
+
+The exact metric set should be determined by the first baseline experiment rather than by prematurely optimizing for a preconceived benchmark.
+
+---
+
+## A22. Chapter 10 Benchmarking Principles
+
+The benchmark must make the workload explicit.
+
+A reported number without workload definition is not a useful engineering result.
+
+Every benchmark should record at least:
+
+```text
+input dataset
+message/event count
+operation mix
+warm-up policy if any
+measurement interval
+compiler/toolchain
+optimization flags
+machine/environment
+result
+```
+
+For historical replay benchmarks, the workload should identify:
+
+```text
+which ITCH file
+which stock locate or filter
+how many records
+which message categories are included
+```
+
+For synthetic simulator benchmarks, the workload should identify:
+
+```text
+add/cancel/modify/match proportions
+order-size distribution if randomized
+price distribution if randomized
+book depth assumptions
+number of events
+```
+
+Benchmarks should be deterministic whenever the tested workload is intended to be deterministic.
+
+---
+
+## A23. Baseline Before Optimization
+
+The current baseline must be measured using the architecture already implemented.
+
+Do not make claims such as:
+
+```text
+high-frequency
+HFT-grade
+ultra-low-latency
+production-grade
+```
+
+unless the project later contains measurements and evidence sufficient to justify those descriptions.
+
+The project should report measured engineering quantities rather than marketing language.
+
+The benchmark chapter therefore continues the same methodological rule used throughout the project:
+
+```text
+measurement before optimization
+```
+
+---
+
+## A24. Chapter 10 First Implementation Direction
+
+The first Chapter 10 implementation should be a small benchmark executable or benchmark harness around the current trusted components.
+
+The initial goal is to answer:
+
+```text
+How fast does the current implementation process a defined workload?
+```
+
+before asking:
+
+```text
+How can the implementation be made faster?
+```
+
+The first benchmark should therefore minimize new abstraction and reuse the current interfaces wherever possible.
+
+The benchmark should avoid changing the semantics of the tested engine.
+
+---
+
+## A25. Chapter 10 Correctness Gate
+
+Every performance change must preserve:
+
+```text
+book state
+FIFO behavior
+trade generation
+OrderMap consistency
+historical replay semantics
+inventory behavior where included
+```
+
+The benchmark result is invalid as an optimization result when the optimized implementation changes semantics.
+
+Therefore the validation sequence remains:
+
+```text
+baseline
+→ change
+→ remeasure
+→ correctness tests
+→ determinism check
+```
+
+A faster incorrect engine is not a successful Chapter 10 result.
+
+---
+
+## A26. Chapter 10 Determinism Gate
+
+The project has a deterministic design goal.
+
+Performance work must not silently introduce nondeterministic state transitions or result ordering.
+
+When the same deterministic workload is replayed multiple times, the expected invariants are:
+
+```text
+same final book state
+same trade sequence
+same counts
+same aggregate metrics
+same replay result
+```
+
+The benchmark system should make it possible to compare repeated runs rather than only record one isolated timing number.
+
+---
+
+## A27. Current Repository Scope After Chapter 9
+
+The repository now conceptually contains:
+
+```text
+Core market-state engine
+    ↓
+Synthetic simulator
+    ↓
+Metrics / execution / inventory analysis
+    ↓
+Historical ITCH parser
+    ↓
+Historical ITCH mapper
+    ↓
+Historical ITCH replay
+    ↓
+Historical file framing
+    ↓
+Diagnostic sample generation
+    ↓
+Diagnostic sample reading
+    ↓
+Diagnostic sample inspection
+    ↓
+Performance benchmarking
+```
+
+Python remains future scope.
+
+The current project should therefore move forward from the completed C++ historical replay foundation rather than adding Python prematurely.
+
+---
+
+## A28. Explicit Do-Not-Reopen Rules
+
+Unless a concrete bug is presented, do not reopen:
+
+```text
+vector/value ownership
+OrderMap as an auxiliary index
+integer price representation
+FIFO semantics
+existing matching behavior
+Simulator event architecture
+Metrics read-only design
+Execution arrival-midpoint semantics
+InventoryModel accounting semantics
+ITCH message-layer separation
+historical-vs-synthetic semantic separation
+ItchFileReader framing responsibility
+Stock Locate extraction rule
+sample record atomic serialization
+```
+
+Any proposed change to those components must first identify the exact correctness or measured-performance reason for the change.
+
+---
+
+## A29. Exact Current File Additions Since the Older Chapter 9 Record
+
+The additional Chapter 9 diagnostic files are:
+
+```text
+cpp/include/lob/itch_sample_reader.hpp
+cpp/src/itch_sample_reader.cpp
+cpp/app/create_itch_samples_main.cpp
+cpp/app/inspect_itch_sample_main.cpp
+```
+
+The data documentation file is:
+
+```text
+data.md
+```
+
+The generated diagnostic sample files are:
+
+```text
+data/itch/2019-10-18/sample/stock_100.bin
+data/itch/2019-10-18/sample/stock_1000.bin
+data/itch/2019-10-18/sample/stock_10000.bin
+data/itch/2019-10-18/sample/stock_100000.bin
+data/itch/2019-10-18/sample/stock_123_all.bin
+```
+
+These are derived diagnostic artifacts and should not be confused with the original historical ITCH source file.
+
+---
+
+## A30. Current Canonical Continuation Point
+
+At the beginning of the next technical discussion, the assumed starting state is:
+
+```text
+Chapters 1–8
+    → complete and trusted
+
+Chapter 9 core ITCH parser / mapper / replay
+    → complete and trusted
+
+Real historical ITCH file reader / replay path
+    → complete and working
+
+ITCH test suite
+    → 37 / 37 passed
+
+Diagnostic sample subsystem
+    → implemented
+
+Sample serialization truncation bug
+    → fixed
+
+Sample inspector debug mode
+    → implemented
+
+Inspector usage-path display
+    → fixed to generic executable name
+
+Chapter 10
+    → current chapter
+    → begin with baseline performance measurement
+```
+
+The next work should therefore start from Chapter 10 and should not restart Chapter 9 unless the user presents a newly discovered concrete correctness defect.
+
+---
+
+## A31. Canonical Chapter 10 Starting Checklist
+
+### Benchmark Foundation
+
+- [ ] Identify the first benchmark workload.
+- [ ] Decide exactly what is being measured.
+- [ ] Define the input size.
+- [ ] Define the operation/message mix.
+- [ ] Build the benchmark around the existing interfaces.
+- [ ] Compile with the intended C++17 toolchain and benchmark flags.
+- [ ] Run repeated baseline measurements.
+- [ ] Record raw results.
+- [ ] Record environment and workload metadata.
+
+### Profiling
+
+- [ ] Profile only after a valid baseline exists.
+- [ ] Identify the dominant measured bottleneck.
+- [ ] Confirm the bottleneck is actually responsible for the observed cost.
+- [ ] Avoid optimizing based only on intuition.
+
+### Optimization
+
+- [ ] Make one targeted change.
+- [ ] Rebuild.
+- [ ] Re-run correctness tests.
+- [ ] Re-run determinism checks.
+- [ ] Re-run the same benchmark workload.
+- [ ] Compare before/after measurements.
+- [ ] Keep the change only when the measured result justifies it and semantics remain correct.
+
+### Documentation
+
+- [ ] Record baseline.
+- [ ] Record bottleneck.
+- [ ] Record optimization.
+- [ ] Record post-change result.
+- [ ] Record correctness result.
+- [ ] Record determinism result.
+
+---
+
+## A32. Final Continuity Rule
+
+The most important maintenance rule for this document is:
+
+```text
+DO NOT TOUCH THE EXISTING 7,808 LINES.
+APPEND NEW INFORMATION ONLY.
+```
+
+This append-only policy exists to preserve the full engineering history of the project and prevent future context compression from deleting implementation details needed for correct continuation.

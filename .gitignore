@@ -21,6 +21,11 @@ Thumbs.db
 # Data
 *.parquet
 *.csv
+*.bin
 
 # Secrets
 .env
+data/itch/**/*.bin
+
+
+data/

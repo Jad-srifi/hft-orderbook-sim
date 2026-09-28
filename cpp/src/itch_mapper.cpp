@@ -140,6 +140,83 @@ std::variant<ReplayOperation, ReplayError> ItchMapper::map(const ItchMessage& me
             else if constexpr (std::is_same_v<T, SystemEventMessage>) {
                 return ReplayError::IgnoredMessage;
             }
+
+            else if constexpr (std::is_same_v<T, StockTradingActionMessage>) {
+                return ReplayError::IgnoredMessage;
+            }
+
+            else if constexpr (std::is_same_v<T, RegSHOMessage>) {
+                return ReplayError::IgnoredMessage;
+            }
+
+            else if constexpr (std::is_same_v<T, MarketParticipantPositionMessage>) {
+                return ReplayError::IgnoredMessage;
+            }
+            else if constexpr (std::is_same_v<T, MWCBDeclineLevelMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, MWCBStatusMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, QuotingPeriodUpdateMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, LULDAuctionCollarMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, OperationalHaltMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, TradeMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, CrossTradeMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, BrokenTradeMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, NOIIMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, RetailInterestMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
+
+            else if constexpr (std::is_same_v<T, DirectListingCapitalRaiseMessage>) {
+
+                return ReplayError::IgnoredMessage;
+
+            }
         },
         message
     );

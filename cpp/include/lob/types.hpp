@@ -42,3 +42,5 @@ using StockSymbol = std::array<char, 8>;
 using ItchPrice = std::uint32_t;
 using MPID = std::array<char, 4>;
 using TrackingNumber = std::uint16_t;
+
+using Byte = std::uint8_t;
