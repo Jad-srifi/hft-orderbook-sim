@@ -26,9 +26,9 @@ namespace
     constexpr std::size_t warmup_runs = 2;
     constexpr std::size_t measured_runs = 10;
 
-    constexpr bool run_test_1 = false;
+    constexpr bool run_test_1 = true;
     constexpr bool run_test_2 = true;
-    constexpr bool run_test_3 = false;
+    constexpr bool run_test_3 = true;
 
     const std::vector<std::size_t> benchmark_sizes =
         {
