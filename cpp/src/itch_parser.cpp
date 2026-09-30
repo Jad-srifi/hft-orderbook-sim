@@ -4,62 +4,76 @@
 
 using Byte = std::uint8_t;
 
-std::vector<Byte> read_bytes(const std::vector<Byte>& bytes, size_t start, size_t count) {
-    if (start + count > bytes.size()) {
+std::vector<Byte> read_bytes(const std::vector<Byte> &bytes, size_t start, size_t count)
+{
+    if (start + count > bytes.size())
+    {
         return {};
     }
 
     std::vector<Byte> result;
 
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++)
+    {
         result.push_back(bytes[start + i]);
     }
 
     return result;
 }
 
-int64_t read_be(const std::vector<Byte>& bytes, size_t start, size_t count) {
-    if (start + count > bytes.size()) {
+int64_t read_be(const std::vector<Byte> &bytes, size_t start, size_t count)
+{
+    if (start + count > bytes.size())
+    {
         return -1;
     }
 
     std::int64_t result = 0;
 
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++)
+    {
         result = result << 8 | bytes[start + i];
     }
 
     return static_cast<int64_t>(result);
 }
 
-Side read_side(Byte byte) {
-    if (byte == 'B') {
+Side read_side(Byte byte)
+{
+    if (byte == 'B')
+    {
         return Side::BUY;
     }
-    
-    if (byte == 'S') {
+
+    if (byte == 'S')
+    {
         return Side::SELL;
     }
-    
+
     return Side::NONE;
 }
 
-bool check_validity(int64_t var) {
-    if (var == -1) {
+bool check_validity(int64_t var)
+{
+    if (var == -1)
+    {
         return false;
     }
     return true;
 }
 
 template <std::size_t N>
-std::array<char, N> read_chars(const std::vector<Byte>& bytes, std::size_t start) {
-    if (start + N > bytes.size()) {
+std::array<char, N> read_chars(const std::vector<Byte> &bytes, std::size_t start)
+{
+    if (start + N > bytes.size())
+    {
         return {};
     }
 
     std::array<char, N> result{};
 
-    for (std::size_t i = 0; i < N; i++) {
+    for (std::size_t i = 0; i < N; i++)
+    {
         result[i] = static_cast<char>(bytes[start + i]);
     }
 
@@ -67,109 +81,122 @@ std::array<char, N> read_chars(const std::vector<Byte>& bytes, std::size_t start
 }
 
 template <typename SpecificMessage>
-std::variant<ItchMessage, ParseError> promote_message(const std::variant<SpecificMessage, ParseError>& result) {
-    if (std::holds_alternative<ParseError>(result)) {
+std::variant<ItchMessage, ParseError> promote_message(const std::variant<SpecificMessage, ParseError> &result)
+{
+    if (std::holds_alternative<ParseError>(result))
+    {
         return std::get<ParseError>(result);
     }
-    return ItchMessage(std::get<SpecificMessage>(result)); 
+    return ItchMessage(std::get<SpecificMessage>(result));
 }
 
-std::variant<ItchMessage, ParseError> get_type_parser(const std::vector<Byte>& bytes) {
-    if (bytes.empty()) {
+std::variant<ItchMessage, ParseError> get_type_parser(const std::vector<Byte> &bytes)
+{
+    if (bytes.empty())
+    {
         return std::variant<ItchMessage, ParseError>(std::in_place_type<ParseError>, ParseError::IncompleteMessage);
     }
-    
-    switch (bytes[0]) {
-        case 'A':
-            return promote_message(parse_A(bytes));
-        case 'F':
-            return promote_message(parse_F(bytes));
-        case 'E':
-            return promote_message(parse_E(bytes));
-        case 'C':
-            return promote_message(parse_C(bytes));
-        case 'X':
-            return promote_message(parse_X(bytes));
-        case 'D':
-            return promote_message(parse_D(bytes));
-        case 'U':
-            return promote_message(parse_U(bytes));
-        case 'R':
-            return promote_message(parse_R(bytes));
-        case 'S':
-            return promote_message(parse_S(bytes));
-        case 'H':
-            return promote_message(parse_H(bytes));
-        case 'Y':
-            return promote_message(parse_Y(bytes));
-        case 'L':
-            return promote_message(parse_L(bytes));
-        case 'V':
-            return promote_message(parse_V(bytes));
-        case 'W':
-            return promote_message(parse_W(bytes));
-        case 'K':
-            return promote_message(parse_K(bytes));
-        case 'P':
-            return promote_message(parse_P(bytes));
-        case 'Q':
-            return promote_message(parse_Q(bytes));
-        case 'N':
-            return promote_message(parse_N(bytes));
-        case 'O':
-            return promote_message(parse_O(bytes));
-        case 'I':
-            return promote_message(parse_I(bytes));
-        case 'B':
-            return promote_message(parse_B(bytes));
-        case 'h':
-            return promote_message(parse_h(bytes));
-        case 'J':
-            return promote_message(parse_J(bytes));
-        default:
-            return ParseError::UnknownMessageType;
+
+    switch (bytes[0])
+    {
+    case 'A':
+        return promote_message(parse_A(bytes));
+    case 'F':
+        return promote_message(parse_F(bytes));
+    case 'E':
+        return promote_message(parse_E(bytes));
+    case 'C':
+        return promote_message(parse_C(bytes));
+    case 'X':
+        return promote_message(parse_X(bytes));
+    case 'D':
+        return promote_message(parse_D(bytes));
+    case 'U':
+        return promote_message(parse_U(bytes));
+    case 'R':
+        return promote_message(parse_R(bytes));
+    case 'S':
+        return promote_message(parse_S(bytes));
+    case 'H':
+        return promote_message(parse_H(bytes));
+    case 'Y':
+        return promote_message(parse_Y(bytes));
+    case 'L':
+        return promote_message(parse_L(bytes));
+    case 'V':
+        return promote_message(parse_V(bytes));
+    case 'W':
+        return promote_message(parse_W(bytes));
+    case 'K':
+        return promote_message(parse_K(bytes));
+    case 'P':
+        return promote_message(parse_P(bytes));
+    case 'Q':
+        return promote_message(parse_Q(bytes));
+    case 'N':
+        return promote_message(parse_N(bytes));
+    case 'O':
+        return promote_message(parse_O(bytes));
+    case 'I':
+        return promote_message(parse_I(bytes));
+    case 'B':
+        return promote_message(parse_B(bytes));
+    case 'h':
+        return promote_message(parse_h(bytes));
+    case 'J':
+        return promote_message(parse_J(bytes));
+    default:
+        return ParseError::UnknownMessageType;
     }
 }
 
-std::variant<AddOrderMessage, ParseError> parse_A(const std::vector<Byte>& bytes) {
-    if (bytes.size() < 36) {
+std::variant<AddOrderMessage, ParseError> parse_A(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() < 36)
+    {
         return ParseError::InvalidMessageLength;
     }
 
     AddOrderMessage message;
 
     auto stock_locate = read_be(bytes, 1, 2);
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
     message.stock_locate = static_cast<StockLocate>(stock_locate);
 
     auto tracking_number = read_be(bytes, 3, 2);
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
     message.tracking_number = static_cast<TrackingNumber>(tracking_number);
 
     auto timestamp = read_be(bytes, 5, 6);
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
     message.timestamp = static_cast<Timestamp>(timestamp);
 
     auto order_reference = read_be(bytes, 11, 8);
-    if (!check_validity(order_reference)) {
+    if (!check_validity(order_reference))
+    {
         return ParseError::MalformedMessage;
     }
     message.order_reference =
         static_cast<OrderReferenceNumber>(order_reference);
 
     message.side = read_side(bytes[19]);
-    if (message.side == Side::NONE) {
+    if (message.side == Side::NONE)
+    {
         return ParseError::MalformedMessage;
     }
 
     auto shares = read_be(bytes, 20, 4);
-    if (!check_validity(shares)) {
+    if (!check_validity(shares))
+    {
         return ParseError::MalformedMessage;
     }
     message.shares = static_cast<Shares>(shares);
@@ -177,7 +204,8 @@ std::variant<AddOrderMessage, ParseError> parse_A(const std::vector<Byte>& bytes
     message.stock_symbol = read_chars<8>(bytes, 24);
 
     auto price = read_be(bytes, 32, 4);
-    if (!check_validity(price)) {
+    if (!check_validity(price))
+    {
         return ParseError::MalformedMessage;
     }
     message.price = static_cast<ItchPrice>(price);
@@ -185,14 +213,17 @@ std::variant<AddOrderMessage, ParseError> parse_A(const std::vector<Byte>& bytes
     return message;
 }
 
-std::variant<AddOrderMPIDMessage, ParseError> parse_F(const std::vector<Byte>& bytes) {
-    if (bytes.size() < 40) {
+std::variant<AddOrderMPIDMessage, ParseError> parse_F(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() < 40)
+    {
         return ParseError::InvalidMessageLength;
     }
 
     std::variant<AddOrderMessage, ParseError> msg = parse_A(bytes);
 
-    if (std::holds_alternative<ParseError>(msg)) {
+    if (std::holds_alternative<ParseError>(msg))
+    {
         return std::get<ParseError>(msg);
     }
 
@@ -213,50 +244,58 @@ std::variant<AddOrderMPIDMessage, ParseError> parse_F(const std::vector<Byte>& b
     return message;
 }
 
-std::variant<ExecuteMessage, ParseError> parse_E(const std::vector<Byte>& bytes) {
-    if (bytes.size() < 31) {
+std::variant<ExecuteMessage, ParseError> parse_E(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() < 31)
+    {
         return ParseError::InvalidMessageLength;
     }
 
     ExecuteMessage message;
 
     auto stock_locate = read_be(bytes, 1, 2);
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.stock_locate = static_cast<StockLocate>(stock_locate);
 
     auto tracking_number = read_be(bytes, 3, 2);
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.tracking_number = static_cast<TrackingNumber>(tracking_number);
 
     auto timestamp = read_be(bytes, 5, 6);
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.timestamp = static_cast<Timestamp>(timestamp);
 
     auto order_reference = read_be(bytes, 11, 8);
-    if (!check_validity(order_reference)) {
+    if (!check_validity(order_reference))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.order_reference = static_cast<OrderReferenceNumber>(order_reference);
 
     auto executed_shares = read_be(bytes, 19, 4);
-    if (!check_validity(executed_shares)) {
+    if (!check_validity(executed_shares))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.executed_shares = static_cast<Shares>(executed_shares);
 
     auto match_number = read_be(bytes, 23, 8);
-    if (!check_validity(match_number)) {
+    if (!check_validity(match_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -265,15 +304,18 @@ std::variant<ExecuteMessage, ParseError> parse_E(const std::vector<Byte>& bytes)
     return message;
 }
 
-std::variant<ExecuteWithPriceMessage, ParseError> parse_C(const std::vector<Byte>& bytes) {
+std::variant<ExecuteWithPriceMessage, ParseError> parse_C(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 36) {
+    if (bytes.size() < 36)
+    {
         return ParseError::InvalidMessageLength;
     }
 
     std::variant<ExecuteMessage, ParseError> msg = parse_E(bytes);
 
-    if (std::holds_alternative<ParseError>(msg)) {
+    if (std::holds_alternative<ParseError>(msg))
+    {
         return std::get<ParseError>(msg);
     }
 
@@ -295,7 +337,8 @@ std::variant<ExecuteWithPriceMessage, ParseError> parse_C(const std::vector<Byte
 
     auto printable = static_cast<char>(bytes[31]);
 
-    if (printable != 'Y' && printable != 'N') {
+    if (printable != 'Y' && printable != 'N')
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -303,7 +346,8 @@ std::variant<ExecuteWithPriceMessage, ParseError> parse_C(const std::vector<Byte
 
     auto execution_price = read_be(bytes, 32, 4);
 
-    if (!check_validity(execution_price)) {
+    if (!check_validity(execution_price))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -312,9 +356,11 @@ std::variant<ExecuteWithPriceMessage, ParseError> parse_C(const std::vector<Byte
     return message;
 }
 
-std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) {
+std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 23) {
+    if (bytes.size() < 23)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -322,7 +368,8 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
 
     auto stock_locate = read_be(bytes, 1, 2);
 
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -330,7 +377,8 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
 
     auto tracking_number = read_be(bytes, 3, 2);
 
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -338,7 +386,8 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
 
     auto timestamp = read_be(bytes, 5, 6);
 
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -347,7 +396,8 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
 
     auto order_reference = read_be(bytes, 11, 8);
 
-    if (!check_validity(order_reference)) {
+    if (!check_validity(order_reference))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -356,7 +406,8 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
 
     auto cancelled_shares = read_be(bytes, 19, 4);
 
-    if (!check_validity(cancelled_shares)) {
+    if (!check_validity(cancelled_shares))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -364,12 +415,13 @@ std::variant<CancelMessage, ParseError> parse_X(const std::vector<Byte>& bytes) 
         static_cast<Shares>(cancelled_shares);
 
     return message;
-
 }
 
-std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte>& bytes) {
+std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 19) {
+    if (bytes.size() < 19)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -377,7 +429,8 @@ std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte>& bytes) 
 
     auto stock_locate = read_be(bytes, 1, 2);
 
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -385,7 +438,8 @@ std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte>& bytes) 
 
     auto tracking_number = read_be(bytes, 3, 2);
 
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -393,7 +447,8 @@ std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte>& bytes) 
 
     auto timestamp = read_be(bytes, 5, 6);
 
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -401,19 +456,21 @@ std::variant<DeleteMessage, ParseError> parse_D(const std::vector<Byte>& bytes) 
 
     auto order_reference = read_be(bytes, 11, 8);
 
-    if (!check_validity(order_reference)) {
+    if (!check_validity(order_reference))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.order_reference = static_cast<OrderReferenceNumber>(order_reference);
 
     return message;
-
 }
 
-std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes) {
+std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 35) {
+    if (bytes.size() < 35)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -421,7 +478,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto stock_locate = read_be(bytes, 1, 2);
 
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -429,7 +487,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto tracking_number = read_be(bytes, 3, 2);
 
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -437,7 +496,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto timestamp = read_be(bytes, 5, 6);
 
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -445,7 +505,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto old_order_reference = read_be(bytes, 11, 8);
 
-    if (!check_validity(old_order_reference)) {
+    if (!check_validity(old_order_reference))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -453,7 +514,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto new_order_reference = read_be(bytes, 19, 8);
 
-    if (!check_validity(new_order_reference)) {
+    if (!check_validity(new_order_reference))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -461,7 +523,8 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto new_shares = read_be(bytes, 27, 4);
 
-    if (!check_validity(new_shares)) {
+    if (!check_validity(new_shares))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -469,19 +532,21 @@ std::variant<ReplaceMessage, ParseError> parse_U(const std::vector<Byte>& bytes)
 
     auto new_price = read_be(bytes, 31, 4);
 
-    if (!check_validity(new_price)) {
+    if (!check_validity(new_price))
+    {
         return ParseError::MalformedMessage;
     }
 
     message.new_price = static_cast<ItchPrice>(new_price);
 
     return message;
-
 }
 
-std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>& bytes) {
+std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 39) {
+    if (bytes.size() < 39)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -489,7 +554,8 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
 
     auto stock_locate = read_be(bytes, 1, 2);
 
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -497,7 +563,8 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
 
     auto tracking_number = read_be(bytes, 3, 2);
 
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -505,7 +572,8 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
 
     auto timestamp = read_be(bytes, 5, 6);
 
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -519,7 +587,8 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
 
     auto round_lot_size = read_be(bytes, 21, 4);
 
-    if (!check_validity(round_lot_size)) {
+    if (!check_validity(round_lot_size))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -543,7 +612,8 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
 
     auto ETP_leverage_factor = read_be(bytes, 34, 4);
 
-    if (!check_validity(ETP_leverage_factor)) {
+    if (!check_validity(ETP_leverage_factor))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -552,12 +622,13 @@ std::variant<StockDirectoryMessage, ParseError> parse_R(const std::vector<Byte>&
     message.inverse_indicator = static_cast<char>(bytes[38]);
 
     return message;
-
 }
 
-std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte>& bytes) {
+std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte> &bytes)
+{
 
-    if (bytes.size() < 12) {
+    if (bytes.size() < 12)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -565,7 +636,8 @@ std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte>& by
 
     auto stock_locate = read_be(bytes, 1, 2);
 
-    if (!check_validity(stock_locate)) {
+    if (!check_validity(stock_locate))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -573,7 +645,8 @@ std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte>& by
 
     auto tracking_number = read_be(bytes, 3, 2);
 
-    if (!check_validity(tracking_number)) {
+    if (!check_validity(tracking_number))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -581,7 +654,8 @@ std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte>& by
 
     auto timestamp = read_be(bytes, 5, 6);
 
-    if (!check_validity(timestamp)) {
+    if (!check_validity(timestamp))
+    {
         return ParseError::MalformedMessage;
     }
 
@@ -594,20 +668,21 @@ std::variant<SystemEventMessage, ParseError> parse_S(const std::vector<Byte>& by
         event_code != 'Q' &&
         event_code != 'M' &&
         event_code != 'E' &&
-        event_code != 'C') {
+        event_code != 'C')
+    {
 
         return ParseError::MalformedMessage;
-
     }
 
     message.event_code = event_code;
 
     return message;
-
 }
 
-std::variant<StockTradingActionMessage, ParseError> parse_H(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 25) {
+std::variant<StockTradingActionMessage, ParseError> parse_H(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 25)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -615,18 +690,15 @@ std::variant<StockTradingActionMessage, ParseError> parse_H(const std::vector<By
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(bytes, 11);
@@ -637,7 +709,8 @@ std::variant<StockTradingActionMessage, ParseError> parse_H(const std::vector<By
     message.reserved =
         static_cast<char>(bytes[20]);
 
-    for (std::size_t i = 0; i < 4; ++i) {
+    for (std::size_t i = 0; i < 4; ++i)
+    {
         message.reason[i] =
             static_cast<char>(bytes[21 + i]);
     }
@@ -645,8 +718,10 @@ std::variant<StockTradingActionMessage, ParseError> parse_H(const std::vector<By
     return message;
 }
 
-std::variant<RegSHOMessage, ParseError> parse_Y(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 20) {
+std::variant<RegSHOMessage, ParseError> parse_Y(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 20)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -654,18 +729,15 @@ std::variant<RegSHOMessage, ParseError> parse_Y(const std::vector<Byte>& bytes) 
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(bytes, 11);
@@ -676,8 +748,10 @@ std::variant<RegSHOMessage, ParseError> parse_Y(const std::vector<Byte>& bytes) 
     return message;
 }
 
-std::variant<MarketParticipantPositionMessage, ParseError> parse_L(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 26) {
+std::variant<MarketParticipantPositionMessage, ParseError> parse_L(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 26)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -685,51 +759,45 @@ std::variant<MarketParticipantPositionMessage, ParseError> parse_L(const std::ve
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.mpid =
         read_chars<4>(
             bytes,
-            11
-        );
+            11);
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            15
-        );
+            15);
 
     message.primary_market_maker =
         static_cast<char>(
-            bytes[23]
-        );
+            bytes[23]);
 
     message.market_maker_mode =
         static_cast<char>(
-            bytes[24]
-        );
+            bytes[24]);
 
     message.market_participant_state =
         static_cast<char>(
-            bytes[25]
-        );
+            bytes[25]);
 
     return message;
 }
 
-std::variant<MWCBDeclineLevelMessage, ParseError>parse_V(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 35) {
+std::variant<MWCBDeclineLevelMessage, ParseError> parse_V(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 35)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -737,39 +805,35 @@ std::variant<MWCBDeclineLevelMessage, ParseError>parse_V(const std::vector<Byte>
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.level_1 =
         static_cast<std::uint64_t>(
-            read_be(bytes, 11, 8)
-        );
+            read_be(bytes, 11, 8));
 
     message.level_2 =
         static_cast<std::uint64_t>(
-            read_be(bytes, 19, 8)
-        );
+            read_be(bytes, 19, 8));
 
     message.level_3 =
         static_cast<std::uint64_t>(
-            read_be(bytes, 27, 8)
-        );
+            read_be(bytes, 27, 8));
 
     return message;
 }
 
-std::variant<MWCBStatusMessage, ParseError> parse_W(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 12) {
+std::variant<MWCBStatusMessage, ParseError> parse_W(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 12)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -777,29 +841,27 @@ std::variant<MWCBStatusMessage, ParseError> parse_W(const std::vector<Byte>& byt
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.breached_level =
         static_cast<char>(
-            bytes[11]
-        );
+            bytes[11]);
 
     return message;
 }
 
-std::variant<QuotingPeriodUpdateMessage, ParseError> parse_K(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 28) {
+std::variant<QuotingPeriodUpdateMessage, ParseError> parse_K(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 28)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -807,45 +869,40 @@ std::variant<QuotingPeriodUpdateMessage, ParseError> parse_K(const std::vector<B
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            11
-        );
+            11);
 
     message.ipo_quotation_release_time =
         static_cast<std::uint32_t>(
-            read_be(bytes, 19, 4)
-        );
+            read_be(bytes, 19, 4));
 
     message.ipo_quotation_release_qualifier =
         static_cast<char>(
-            bytes[23]
-        );
+            bytes[23]);
 
     message.ipo_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 24, 4)
-        );
+            read_be(bytes, 24, 4));
 
     return message;
 }
 
-std::variant<LULDAuctionCollarMessage, ParseError> parse_J(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 35) {
+std::variant<LULDAuctionCollarMessage, ParseError> parse_J(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 35)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -853,50 +910,44 @@ std::variant<LULDAuctionCollarMessage, ParseError> parse_J(const std::vector<Byt
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            11
-        );
+            11);
 
     message.auction_collar_reference_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 19, 4)
-        );
+            read_be(bytes, 19, 4));
 
     message.upper_auction_collar_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 23, 4)
-        );
+            read_be(bytes, 23, 4));
 
     message.lower_auction_collar_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 27, 4)
-        );
+            read_be(bytes, 27, 4));
 
     message.auction_collar_extension =
         static_cast<std::uint32_t>(
-            read_be(bytes, 31, 4)
-        );
+            read_be(bytes, 31, 4));
 
     return message;
 }
 
-std::variant<OperationalHaltMessage, ParseError> parse_h(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 21) {
+std::variant<OperationalHaltMessage, ParseError> parse_h(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 21)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -904,40 +955,36 @@ std::variant<OperationalHaltMessage, ParseError> parse_h(const std::vector<Byte>
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            11
-        );
+            11);
 
     message.market_code =
         static_cast<char>(
-            bytes[19]
-        );
+            bytes[19]);
 
     message.operational_halt_action =
         static_cast<char>(
-            bytes[20]
-        );
+            bytes[20]);
 
     return message;
 }
 
-std::variant<TradeMessage, ParseError> parse_P(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 44) {
+std::variant<TradeMessage, ParseError> parse_P(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 44)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -945,55 +992,48 @@ std::variant<TradeMessage, ParseError> parse_P(const std::vector<Byte>& bytes) {
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.order_reference =
         static_cast<OrderReferenceNumber>(
-            read_be(bytes, 11, 8)
-        );
+            read_be(bytes, 11, 8));
 
     message.side =
         read_side(
-            bytes[19]
-        );
+            bytes[19]);
 
     message.shares =
         static_cast<Shares>(
-            read_be(bytes, 20, 4)
-        );
+            read_be(bytes, 20, 4));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            24
-        );
+            24);
 
     message.price =
         static_cast<ItchPrice>(
-            read_be(bytes, 32, 4)
-        );
+            read_be(bytes, 32, 4));
 
     message.match_number =
         static_cast<MatchNumber>(
-            read_be(bytes, 36, 8)
-        );
+            read_be(bytes, 36, 8));
 
     return message;
 }
 
-std::variant<CrossTradeMessage, ParseError> parse_Q(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 40) {
+std::variant<CrossTradeMessage, ParseError> parse_Q(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 40)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -1001,50 +1041,44 @@ std::variant<CrossTradeMessage, ParseError> parse_Q(const std::vector<Byte>& byt
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.shares =
         static_cast<Shares>(
-            read_be(bytes, 11, 8)
-        );
+            read_be(bytes, 11, 8));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            19
-        );
+            19);
 
     message.cross_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 27, 4)
-        );
+            read_be(bytes, 27, 4));
 
     message.match_number =
         static_cast<MatchNumber>(
-            read_be(bytes, 31, 8)
-        );
+            read_be(bytes, 31, 8));
 
     message.cross_type =
         static_cast<char>(
-            bytes[39]
-        );
+            bytes[39]);
 
     return message;
 }
 
-std::variant<BrokenTradeMessage, ParseError> parse_B(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 19) {
+std::variant<BrokenTradeMessage, ParseError> parse_B(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 19)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -1052,29 +1086,27 @@ std::variant<BrokenTradeMessage, ParseError> parse_B(const std::vector<Byte>& by
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.match_number =
         static_cast<MatchNumber>(
-            read_be(bytes, 11, 8)
-        );
+            read_be(bytes, 11, 8));
 
     return message;
 }
 
-std::variant<NOIIMessage, ParseError> parse_I(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 50) {
+std::variant<NOIIMessage, ParseError> parse_I(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 50)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -1082,70 +1114,60 @@ std::variant<NOIIMessage, ParseError> parse_I(const std::vector<Byte>& bytes) {
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.paired_shares =
         static_cast<std::uint64_t>(
-            read_be(bytes, 11, 8)
-        );
+            read_be(bytes, 11, 8));
 
     message.imbalance_shares =
         static_cast<std::uint64_t>(
-            read_be(bytes, 19, 8)
-        );
+            read_be(bytes, 19, 8));
 
     message.imbalance_direction =
         static_cast<char>(
-            bytes[27]
-        );
+            bytes[27]);
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            28
-        );
+            28);
 
     message.far_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 36, 4)
-        );
+            read_be(bytes, 36, 4));
 
     message.near_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 40, 4)
-        );
+            read_be(bytes, 40, 4));
 
     message.current_reference_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 44, 4)
-        );
+            read_be(bytes, 44, 4));
 
     message.cross_type =
         static_cast<char>(
-            bytes[48]
-        );
+            bytes[48]);
 
     message.price_variation_indicator =
         static_cast<char>(
-            bytes[49]
-        );
+            bytes[49]);
 
     return message;
 }
 
-std::variant<RetailInterestMessage, ParseError> parse_N(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 20) {
+std::variant<RetailInterestMessage, ParseError> parse_N(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 20)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -1153,35 +1175,32 @@ std::variant<RetailInterestMessage, ParseError> parse_N(const std::vector<Byte>&
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            11
-        );
+            11);
 
     message.interest_flag =
         static_cast<char>(
-            bytes[19]
-        );
+            bytes[19]);
 
     return message;
 }
 
-std::variant<DirectListingCapitalRaiseMessage, ParseError> parse_O(const std::vector<Byte>& bytes) {
-    if (bytes.size() != 48) {
+std::variant<DirectListingCapitalRaiseMessage, ParseError> parse_O(const std::vector<Byte> &bytes)
+{
+    if (bytes.size() != 48)
+    {
         return ParseError::InvalidMessageLength;
     }
 
@@ -1189,60 +1208,48 @@ std::variant<DirectListingCapitalRaiseMessage, ParseError> parse_O(const std::ve
 
     message.stock_locate =
         static_cast<StockLocate>(
-            read_be(bytes, 1, 2)
-        );
+            read_be(bytes, 1, 2));
 
     message.tracking_number =
         static_cast<TrackingNumber>(
-            read_be(bytes, 3, 2)
-        );
+            read_be(bytes, 3, 2));
 
     message.timestamp =
         static_cast<Timestamp>(
-            read_be(bytes, 5, 6)
-        );
+            read_be(bytes, 5, 6));
 
     message.stock_symbol =
         read_chars<8>(
             bytes,
-            11
-        );
+            11);
 
     message.open_eligibility_status =
         static_cast<char>(
-            bytes[19]
-        );
+            bytes[19]);
 
     message.minimum_allowable_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 20, 4)
-        );
+            read_be(bytes, 20, 4));
 
     message.maximum_allowable_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 24, 4)
-        );
+            read_be(bytes, 24, 4));
 
     message.near_execution_price =
         static_cast<ItchPrice>(
-            read_be(bytes, 28, 4)
-        );
+            read_be(bytes, 28, 4));
 
     message.near_execution_time =
         static_cast<Timestamp>(
-            read_be(bytes, 32, 8)
-        );
+            read_be(bytes, 32, 8));
 
     message.lower_price_range_collar =
         static_cast<ItchPrice>(
-            read_be(bytes, 40, 4)
-        );
+            read_be(bytes, 40, 4));
 
     message.upper_price_range_collar =
         static_cast<ItchPrice>(
-            read_be(bytes, 44, 4)
-        );
+            read_be(bytes, 44, 4));
 
     return message;
 }
-

@@ -3,9 +3,13 @@
 #include <cstdint>
 #include <unordered_map>
 #include <array>
+#include <string>
+#include <chrono>
+#include <cstddef>
+#include <functional>
 
-
-enum class Side {
+enum class Side
+{
     BUY,
     SELL,
     NONE
@@ -44,3 +48,8 @@ using MPID = std::array<char, 4>;
 using TrackingNumber = std::uint16_t;
 
 using Byte = std::uint8_t;
+
+using BenchmarkName = std::string;
+using BenchmarkDuration = std::chrono::nanoseconds;
+using OperationsPerSecond = double;
+using NanosecondsPerOperation = double;
