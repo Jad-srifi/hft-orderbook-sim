@@ -1138,6 +1138,23 @@ Test III — Ch8–9 large-scale baseline: complete
 302,347,067-message ITCH benchmark: complete
 
 100k core completion: partially measured + explicitly estimated remainder
-
-Next step: profiling
 ```
+
+## Next Step — Profiling
+
+The benchmarking phase establishes the performance baseline. The next phase is
+profiling the workloads that exhibit the strongest scaling behavior.
+
+Profiling will identify where execution time is actually spent before any
+performance optimization is attempted.
+
+Initial profiling targets:
+
+- `OrderBook::add`
+- cancel / restore
+- modify
+- matching
+- simulator workloads
+- end-to-end ITCH replay
+
+No optimization conclusions are drawn from the benchmark results alone.
