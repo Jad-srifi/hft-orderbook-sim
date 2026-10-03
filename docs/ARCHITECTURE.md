@@ -27,75 +27,141 @@ Chapter 9 introduces a dedicated external-market-data ingestion and replay layer
 The implementation prioritizes:
 
 ```text
+
 correctness
+
     ↓
+
 explicit architecture
+
     ↓
+
 state invariants
+
     ↓
+
 testing
+
     ↓
+
 realistic simulation / historical reconstruction
+
     ↓
+
 measurement
+
     ↓
+
 performance optimization
+
     ↓
+
 research
+
 ```
 
 The current architecture is:
 
 ```text
+
                               Synthetic Events
+
                                     |
+
                                     v
+
                                Simulator
+
                                     |
+
                                     v
+
                                 OrderBook
+
                               /          \
+
                              /            \
+
                             v              v
+
                       OrderMap        Matching Engine
+
                                            |
+
                                            v
+
                                          Trade
+
                                            |
+
                     +----------------------+----------------+
+
                     |                      |                |
+
                     v                      v                v
+
                 Metrics              Execution        InventoryModel
+
                     |                 Analysis               |
+
                     v                      |                  v
+
               MarketMetrics         ExecutionResult     Position / P&L
+
                                                               |
+
                                                               v
+
                                                          Valuation / Risk
 
 
+
+
+
                               Historical ITCH
+
                                     |
+
                                     v
+
                               ITCH Parser
+
                                     |
+
                                     v
+
                                ItchMessage
+
                                     |
+
                                     v
+
                               ITCH Mapper
+
                                     |
+
                                     v
+
                              ReplayOperation
+
                                     |
+
                                     v
+
                                ItchReplay
+
                                     |
+
                                     v
+
                                 OrderBook
+
                                     |
+
                                     v
+
                           Historical Book State
+
 ```
 
 The two input paths intentionally have different semantics.
@@ -103,41 +169,69 @@ The two input paths intentionally have different semantics.
 Synthetic simulation:
 
 ```text
+
 Event
+
   ↓
+
 Simulator
+
   ↓
+
 OrderBook
+
   ↓
+
 Matching Engine
+
   ↓
+
 Trade
+
 ```
 
 Historical replay:
 
 ```text
+
 ITCH Message
+
   ↓
+
 Parser
+
   ↓
+
 ItchMessage
+
   ↓
+
 Mapper
+
   ↓
+
 ReplayOperation
+
   ↓
+
 ItchReplay
+
   ↓
+
 OrderBook
+
 ```
 
 The historical path does not automatically pass through:
 
 ```text
+
 Event
+
 Simulator
+
 Matching Engine
+
 ```
 
 because an ITCH feed message describes an exchange-side historical state transition or observation rather than necessarily describing a new hypothetical order to be matched.
@@ -145,52 +239,91 @@ because an ITCH feed message describes an exchange-side historical state transit
 The underlying order-book architecture remains:
 
 ```text
+
 Order
+
    |
+
 PriceLevel
+
    |
+
 OrderBook
+
    |
+
 +--+----------------+
+
 |                   |
+
 OrderMap        Matching Engine
+
                     |
+
                   Trade
+
 ```
 
 The analytical and accounting layers observe or consume outputs from the simulation core:
 
 ```text
+
 OrderBook ──────────────┐
+
                         |
+
 Trade History ──────────┤
+
                         v
+
                  Analysis Layers
+
               /          |          \
+
              v           v           v
+
       Microstructure  Execution   Inventory
+
           Metrics      Analysis      Model
+
              |            |             |
+
              v            v             v
+
       MarketMetrics  ExecutionResult  P&L / Risk
+
 ```
 
 The historical reconstruction layer instead observes external protocol messages and mutates the existing market-state representation through replay operations:
 
 ```text
+
 ITCH Bytes
+
     ↓
+
 Parser
+
     ↓
+
 ItchMessage
+
     ↓
+
 Mapper
+
     ↓
+
 ReplayOperation
+
     ↓
+
 ItchReplay
+
     ↓
+
 OrderBook
+
 ```
 
 The C++ implementation serves as the performance-critical core of the project, while Python will later be used for research, analysis, visualization, statistics, and quantitative experimentation.
@@ -208,28 +341,43 @@ An `Order` represents a single order submitted to the market.
 Each order contains:
 
 - `OrderId` — unique identifier for the order
+
 - `Side` — `BUY` or `SELL`
+
 - `Price` — integer price representation
+
 - `Quantity` — number of units currently remaining
 
 Conceptually:
 
 ```text
+
 Order
 
+
+
 ├── ID
+
 ├── Side
+
 ├── Price
+
 └── Quantity
+
 ```
 
 For example:
 
 ```text
+
 Order ID: 10
+
 Side:     BUY
+
 Price:    8150
+
 Quantity: 200
+
 ```
 
 The order represents a request to buy 200 units at a price of 8150 ticks.
@@ -245,9 +393,13 @@ Prices are represented using integers rather than floating-point values.
 For example:
 
 ```text
+
 $100.00 → 10000
+
 $100.25 → 10025
+
 $105.50 → 10550
+
 ```
 
 This avoids floating-point precision problems.
@@ -255,7 +407,9 @@ This avoids floating-point precision problems.
 The project therefore defines:
 
 ```cpp
+
 using Price = std::int64_t;
+
 ```
 
 Using integer ticks also provides a clean foundation for later high-performance market simulation.
@@ -265,13 +419,21 @@ The integer representation remains the canonical representation of quoted prices
 Floating-point values are introduced only where a derived metric naturally requires them, such as:
 
 ```text
+
 mid-price
+
 relative spread
+
 order-book imbalance
+
 VWAP
+
 slippage
+
 average cost
+
 P&L
+
 ```
 
 Chapter 9 preserves this principle when converting ITCH protocol prices into the internal `Price` representation.
@@ -285,11 +447,17 @@ A `PriceLevel` represents all orders currently resting at the same price on the 
 Each price level contains:
 
 ```text
+
 PriceLevel
 
+
+
 ├── price
+
 ├── orders
+
 └── total_quantity
+
 ```
 
 The individual orders remain separate because they have different order IDs, while the price level provides an aggregate view of liquidity at that price.
@@ -303,11 +471,17 @@ The order sequence inside a price level is significant because it represents FIF
 The `OrderBook` contains two independent sides:
 
 ```text
+
 OrderBook
 
+
+
 ├── bids
+
 ├── asks
+
 └── order_map
+
 ```
 
 Bids represent BUY orders.
@@ -329,8 +503,11 @@ The same `OrderBook` remains the central market-state source of truth for both s
 The order book exposes:
 
 ```cpp
+
 Price best_bid();
+
 Price best_ask();
+
 ```
 
 `best_bid()` returns the highest available BUY price.
@@ -340,8 +517,11 @@ Price best_ask();
 The current empty-book convention is:
 
 ```text
+
 No bid → best_bid() returns 0
+
 No ask → best_ask() returns 0
+
 ```
 
 Within the simulator, `0` is reserved as a sentinel for the absence of an available quote and is not used as a valid market price.
@@ -355,13 +535,17 @@ This convention is retained rather than introducing `std::optional<Price>` into 
 The spread is:
 
 ```text
+
 Spread = Best Ask − Best Bid
+
 ```
 
 When either side is unavailable, the existing `OrderBook` convention returns:
 
 ```text
+
 Spread = 0
+
 ```
 
 ---
@@ -371,13 +555,21 @@ Spread = 0
 When an order is added, its side determines the target side of the book.
 
 ```text
+
                     Order
+
                       |
+
             +---------+---------+
+
             |                   |
+
            BUY                SELL
+
             |                   |
+
           bids                asks
+
 ```
 
 If the relevant price level already exists, the order is appended to the existing level.
@@ -395,38 +587,71 @@ Orders are removed using their `OrderId`.
 The cancellation path is:
 
 ```text
+
 cancel(order_id)
 
+
+
       ↓
+
+
 
 Find OrderLocation in OrderMap
 
+
+
       ↓
+
+
 
 Locate corresponding PriceLevel
 
+
+
       ↓
+
+
 
 Remove order from price level
 
+
+
       ↓
+
+
 
 Update total_quantity
 
+
+
       ↓
+
+
 
 Remove OrderMap entry
 
+
+
       ↓
+
+
 
 Update shifted indices
 
+
+
       ↓
+
+
 
 Is price level empty?
 
+
+
  ├── YES → Remove price level
+
  └── NO  → Keep price level
+
 ```
 
 The operation returns `true` when an order is successfully cancelled and `false` when the order does not exist or cannot be located.
@@ -456,46 +681,83 @@ The matching engine processes an incoming order against the opposite side of the
 The fundamental rule is:
 
 ```text
+
 BUY  → matches against ASKS
+
 SELL → matches against BIDS
+
 ```
 
 Conceptually:
 
 ```text
+
 Incoming Order
 
+
+
       ↓
+
+
 
 Determine Side
 
+
+
       ↓
+
+
 
 Find Opposite Side
 
+
+
       ↓
+
+
 
 Check Price Crossing
 
+
+
       ↓
+
+
 
 Match FIFO Orders
 
+
+
       ↓
+
+
 
 Generate Trade(s)
 
+
+
       ↓
+
+
 
 Update Quantities
 
+
+
       ↓
+
+
 
 Remove Filled Orders / Levels
 
+
+
       ↓
 
+
+
 Rest Remaining Quantity
+
 ```
 
 Matching remains the responsibility of `OrderBook`.
@@ -503,11 +765,17 @@ Matching remains the responsibility of `OrderBook`.
 The matching engine is not aware of:
 
 ```text
+
 inventory
+
 cash
+
 P&L
+
 portfolio value
+
 risk statistics
+
 ```
 
 Those are handled above the matching layer.
@@ -523,31 +791,49 @@ A `Trade` represents one executed transaction between an incoming order and a re
 The structure contains:
 
 ```text
+
 Trade
 
+
+
 ├── incoming_order
+
 ├── resting_order
+
 ├── price
+
 └── quantity
+
 ```
 
 Conceptually:
 
 ```cpp
+
 struct Trade {
+
     OrderId incoming_order;
+
     OrderId resting_order;
+
     Price price;
+
     Quantity quantity;
+
 };
+
 ```
 
 The trade intentionally does not store:
 
 ```text
+
 incoming side
+
 arrival midpoint
+
 inventory information
+
 ```
 
 The simulator supplies that contextual information to later analytical/accounting layers.
@@ -565,7 +851,9 @@ The lowest ask has highest execution priority.
 The crossing condition is:
 
 ```text
+
 incoming BUY price >= resting ASK price
+
 ```
 
 Matching continues while the condition remains true.
@@ -583,7 +871,9 @@ The highest bid has highest execution priority.
 The crossing condition is:
 
 ```text
+
 incoming SELL price <= resting BID price
+
 ```
 
 Matching continues while the condition remains true.
@@ -599,8 +889,11 @@ The matching engine follows price-time priority.
 Price priority:
 
 ```text
+
 BUY  → lowest executable ASK first
+
 SELL → highest executable BID first
+
 ```
 
 Within a price level, FIFO priority is represented by order order inside the vector.
@@ -622,20 +915,27 @@ A partial fill occurs when an incoming order is larger than available quantity a
 Example:
 
 ```text
+
 Resting SELL → 30
+
 Incoming BUY  → 50
+
 ```
 
 Execution:
 
 ```text
+
 30
+
 ```
 
 Remaining incoming quantity:
 
 ```text
+
 20
+
 ```
 
 Matching then continues.
@@ -649,25 +949,37 @@ An incoming order can consume liquidity across multiple price levels.
 Example:
 
 ```text
+
 ASKS
 
+
+
 10000 → 20
+
 10100 → 30
+
 10200 → 40
+
 ```
 
 Incoming:
 
 ```text
+
 BUY @ 10200 × 60
+
 ```
 
 Execution:
 
 ```text
+
 20 @ 10000
+
 30 @ 10100
+
 10 @ 10200
+
 ```
 
 This behavior directly supports the execution analysis introduced in Chapter 7.
@@ -681,10 +993,15 @@ Every individual execution creates a `Trade`.
 A single incoming order may therefore generate:
 
 ```text
+
 Trade 1
+
 Trade 2
+
 Trade 3
+
 ...
+
 ```
 
 The returned vector preserves execution order.
@@ -696,15 +1013,25 @@ The returned vector preserves execution order.
 The incoming order's quantity represents the remaining unfilled quantity.
 
 ```text
+
 Initial Quantity
+
       ↓
+
 Match
+
       ↓
+
 Subtract Executed Quantity
+
       ↓
+
 Remaining Quantity
+
       ↓
+
 Continue Matching
+
 ```
 
 When the remaining quantity reaches zero, matching stops.
@@ -718,13 +1045,17 @@ Any positive remainder becomes resting liquidity.
 For a trade of quantity `Q`:
 
 ```text
+
 Resting Quantity -= Q
+
 ```
 
 and:
 
 ```text
+
 PriceLevel Total Quantity -= Q
+
 ```
 
 If the resting order becomes zero, it is removed.
@@ -742,25 +1073,41 @@ An incoming order has two possible outcomes.
 ### Crossing Order
 
 ```text
+
 Incoming Order
+
       ↓
+
 Executable Liquidity Exists
+
       ↓
+
 Matching
+
       ↓
+
 Trade(s)
+
 ```
 
 ### Non-Crossing Order
 
 ```text
+
 Incoming Order
+
       ↓
+
 No Executable Liquidity
+
       ↓
+
 No Trade
+
       ↓
+
 Order Rests
+
 ```
 
 ---
@@ -774,15 +1121,21 @@ Without an auxiliary index, locating an order by `OrderId` would require scannin
 Chapter 3 introduces:
 
 ```text
+
 OrderId
+
    ↓
+
 OrderLocation
+
 ```
 
 through:
 
 ```cpp
+
 std::unordered_map<OrderId, OrderLocation>
+
 ```
 
 The map provides average constant-time lookup under normal hash-table behavior.
@@ -798,21 +1151,33 @@ An `OrderLocation` identifies the physical location of a resting order.
 It contains:
 
 ```text
+
 OrderLocation
 
+
+
 ├── side
+
 ├── price
+
 └── index
+
 ```
 
 Conceptually:
 
 ```cpp
+
 struct OrderLocation {
+
     Side side;
+
     Price price;
+
     std::size_t index;
+
 };
+
 ```
 
 ---
@@ -820,18 +1185,31 @@ struct OrderLocation {
 ## 25. OrderMap Structure
 
 ```text
+
 OrderBook
 
+
+
 ├── bids
+
 │   └── PriceLevels
+
 │       └── Orders
+
 │
+
 ├── asks
+
 │   └── PriceLevels
+
 │       └── Orders
+
 │
+
 └── OrderMap
+
     └── OrderId → OrderLocation
+
 ```
 
 The actual `Order` remains inside its `PriceLevel`.
@@ -843,7 +1221,9 @@ The actual `Order` remains inside its `PriceLevel`.
 The book stores:
 
 ```cpp
+
 std::vector<Order>
+
 ```
 
 inside price levels.
@@ -851,9 +1231,13 @@ inside price levels.
 The index therefore stores:
 
 ```text
+
 OrderId
+
     ↓
+
 Side + Price + Index
+
 ```
 
 rather than making persistent pointers part of the ownership architecture.
@@ -861,9 +1245,13 @@ rather than making persistent pointers part of the ownership architecture.
 Ownership remains:
 
 ```text
+
 OrderBook
+
     owns PriceLevels
+
         which own Orders
+
 ```
 
 The `OrderMap` is an auxiliary lookup structure.
@@ -895,7 +1283,9 @@ Historical replay removals use the same underlying mechanism.
 The underlying order storage uses:
 
 ```cpp
+
 std::vector<Order>
+
 ```
 
 Erasing an order from the middle shifts later elements.
@@ -909,9 +1299,13 @@ Therefore the corresponding `OrderMap` entries must remain synchronized.
 The central invariant is:
 
 ```text
+
 Every resting order in the book has exactly one OrderMap entry.
 
+
+
 Every OrderMap entry corresponds to exactly one resting order.
+
 ```
 
 ---
@@ -921,13 +1315,21 @@ Every OrderMap entry corresponds to exactly one resting order.
 A partial fill changes quantity but not location:
 
 ```text
+
 Partial Fill
+
     ↓
+
 Quantity changes
+
     ↓
+
 Location unchanged
+
     ↓
+
 OrderMap unchanged
+
 ```
 
 The same principle applies to historical ITCH `E`, `C`, and `X` reductions.
@@ -939,7 +1341,9 @@ The same principle applies to historical ITCH `E`, `C`, and `X` reductions.
 When a resting order is fully filled:
 
 ```text
+
 Resting Quantity → 0
+
 ```
 
 the order and its `OrderMap` entry are removed.
@@ -955,25 +1359,41 @@ A historical execution that reduces an order to zero follows the same resulting 
 Chapter 4 provides:
 
 ```cpp
+
 Order* find_order(OrderId order_id);
+
 ```
 
 The lookup path is:
 
 ```text
+
 OrderId
+
    ↓
+
 OrderMap::find()
+
    ↓
+
 OrderLocation
+
    ↓
+
 Select bids / asks
+
    ↓
+
 Locate PriceLevel
+
    ↓
+
 Access orders[index]
+
    ↓
+
 Return Order*
+
 ```
 
 The returned pointer is temporary access into vector-owned storage.
@@ -987,47 +1407,85 @@ It must not be retained across operations capable of erasing or reallocating the
 The public operation is:
 
 ```cpp
+
 bool modify(
+
     OrderId order_id,
+
     Price new_price,
+
     Quantity new_quantity
+
 );
+
 ```
 
 The current logic is:
 
 ```text
+
 modify()
 
+
+
     ↓
+
+
 
 find_order()
 
+
+
     ↓
+
+
 
 Does order exist?
 
+
+
  ├── NO → false
+
  │
+
  └── YES
+
       ↓
+
 new_quantity == 0?
+
  │
+
  ├── YES → cancel()
+
  │
+
  └── NO
+
       ↓
+
 Same price AND quantity decrease/equal?
+
  │
+
  ├── YES → modify in place
+
  │
+
  └── NO
+
       ↓
+
 cancel(old)
+
       ↓
+
 add(replacement)
+
       ↓
+
 FIFO priority resets
+
 ```
 
 ---
@@ -1059,7 +1517,9 @@ FIFO priority resets.
 A modification with:
 
 ```text
+
 new_quantity = 0
+
 ```
 
 is treated as cancellation.
@@ -1071,15 +1531,21 @@ is treated as cancellation.
 A replacement retains:
 
 ```text
+
 Original OrderId
+
 Original Side
+
 ```
 
 Only the modified attributes change:
 
 ```text
+
 Price
+
 Quantity
+
 ```
 
 This applies to the internal Chapter 4 `modify()` operation.
@@ -1093,27 +1559,45 @@ Chapter 9 ITCH `U` semantics are different because the external protocol introdu
 In-place modification:
 
 ```text
+
 Order
+
    ↓
+
 Quantity updated
+
    ↓
+
 Location unchanged
+
    ↓
+
 OrderMap unchanged
+
 ```
 
 Replacement:
 
 ```text
+
 cancel()
+
    ↓
+
 OrderMap entry removed
+
    ↓
+
 add()
+
    ↓
+
 New location created
+
    ↓
+
 OrderMap entry recreated
+
 ```
 
 ---
@@ -1125,46 +1609,75 @@ OrderMap entry recreated
 The event abstraction is defined in:
 
 ```text
+
 cpp/include/lob/event.hpp
+
 ```
 
 Current event types:
 
 ```cpp
+
 enum class EventType {
+
     ADD,
+
     CANCEL,
+
     MODIFY
+
 };
+
 ```
 
 Each event contains:
 
 ```text
+
 Event
 
+
+
 ├── type
+
 ├── timestamp
+
 ├── sequence
+
 ├── order
+
 ├── order_id
+
 ├── new_price
+
 └── new_quantity
+
 ```
 
 Field usage:
 
 ```text
+
 ADD
+
 → order
 
+
+
 CANCEL
+
 → order_id
 
+
+
 MODIFY
+
 → order_id
+
 → new_price
+
 → new_quantity
+
 ```
 
 ITCH protocol messages remain separate from this internal event representation.
@@ -1176,41 +1689,65 @@ ITCH protocol messages remain separate from this internal event representation.
 Each event contains:
 
 ```text
+
 timestamp
+
 sequence
+
 ```
 
 The current model is:
 
 ```text
+
 100   0
+
 100   1
+
 100   2
 
+
+
 101   0
+
 101   1
 
+
+
 102   0
+
 ```
 
 Validation rules:
 
 ```text
+
 timestamp < current_time
+
     → reject
 
+
+
 timestamp == current_time
+
     → sequence > last_sequence
 
+
+
 timestamp > current_time
+
     → sequence == 0
+
 ```
 
 Accepted events update:
 
 ```text
+
 current_time
+
 last_sequence
+
 ```
 
 Rejected events do not advance simulator temporal state.
@@ -1226,45 +1763,81 @@ Chapter 9 does not force ITCH feed ordering into this simulator sequence model. 
 The `Simulator` now coordinates four distinct categories of state:
 
 ```text
+
 Simulator
 
+
+
 ├── OrderBook
+
 ├── Event Stream
+
 ├── Trade History
+
 ├── Execution Context
+
 └── InventoryModel
+
 ```
 
 Conceptually:
 
 ```cpp
+
 struct Simulator {
+
+
 
     OrderBook order_book;
 
+
+
     Timestamp current_time = 0;
+
     Sequence last_sequence = 0;
+
+
 
     InventoryModel inventory_model;
 
+
+
     std::vector<Event> events;
+
+
 
     std::vector<Trade> trades;
 
+
+
     SidesByOrder sides_by_order;
+
+
 
     ReferencePricesByOrder reference_prices_by_order;
 
+
+
     void add_event(Event event);
+
+
 
     void process_event(const Event& event);
 
+
+
     void process_events();
+
+
 
     ExecutionResultsByOrder calculate_execution_results();
 
+
+
     InventoryModel& get_inventory_model();
+
 };
+
 ```
 
 The simulator remains the orchestration layer.
@@ -1288,54 +1861,83 @@ Historical ITCH replay is intentionally outside the simulator's synthetic event-
 For an accepted ADD event:
 
 ```text
+
 ADD Event
+
    ↓
+
 Validate event
+
    ↓
+
 Capture incoming Side
+
    ↓
+
 Capture arrival Midpoint
+
    ↓
+
 Process order through OrderBook
+
    ↓
+
 Generate Trade(s)
+
    ↓
+
 Update Trade History
+
    ↓
+
 Update InventoryModel from generated Trade(s)
+
 ```
 
 The arrival midpoint is captured before matching:
 
 ```cpp
+
 calculate_mid_price(order_book)
+
 ```
 
 The side is stored before matching:
 
 ```text
+
 OrderId → Side
+
 ```
 
 The incoming order is then passed through:
 
 ```cpp
+
 order_book.process_order()
+
 ```
 
 Every generated trade is appended to:
 
 ```cpp
+
 trades
+
 ```
 
 and passed to:
 
 ```cpp
+
 inventory_model.process_trade(
+
     trade,
+
     event.order.side
+
 );
+
 ```
 
 All trades generated by one incoming order therefore use the same incoming side.
@@ -1345,7 +1947,9 @@ All trades generated by one incoming order therefore use the same incoming side.
 The simulator calls:
 
 ```cpp
+
 order_book.cancel(order_id);
+
 ```
 
 ### MODIFY
@@ -1353,11 +1957,17 @@ order_book.cancel(order_id);
 The simulator calls:
 
 ```cpp
+
 order_book.modify(
+
     order_id,
+
     new_price,
+
     new_quantity
+
 );
+
 ```
 
 The `OrderBook` remains responsible for book-state semantics.
@@ -1369,21 +1979,37 @@ The `OrderBook` remains responsible for book-state semantics.
 The processing path is:
 
 ```text
+
 Event
+
   ↓
+
 Timestamp validation
+
   ↓
+
 Sequence validation
+
   ↓
+
 Event-specific state validation
+
   ↓
+
 Book operation
+
   ↓
+
 Trade generation where applicable
+
   ↓
+
 Inventory update where trades occurred
+
   ↓
+
 Update simulator clock
+
 ```
 
 Rejected events do not intentionally mutate market state or inventory state.
@@ -1395,7 +2021,9 @@ Rejected events do not intentionally mutate market state or inventory state.
 Events are stored using:
 
 ```cpp
+
 std::vector<Event> events;
+
 ```
 
 Events are stored in insertion order.
@@ -1409,25 +2037,41 @@ Validation occurs during processing.
 ## 45. Processing an Event Stream
 
 ```cpp
+
 void process_events();
+
 ```
 
 processes events sequentially:
 
 ```text
+
 events[0]
+
    ↓
+
 process_event()
+
+
 
 events[1]
+
    ↓
+
 process_event()
+
+
 
 events[2]
+
    ↓
+
 process_event()
 
+
+
 ...
+
 ```
 
 ---
@@ -1437,8 +2081,11 @@ process_event()
 The simulator maintains:
 
 ```cpp
+
 Timestamp current_time;
+
 Sequence last_sequence;
+
 ```
 
 These represent the temporal position of the most recently accepted event.
@@ -1450,11 +2097,17 @@ These represent the temporal position of the most recently accepted event.
 The simulator prevents duplicate active `ADD` order IDs.
 
 ```text
+
 ADD Event
+
    ↓
+
 Does OrderId already exist?
+
    ├── YES → Reject
+
    └── NO  → Process
+
 ```
 
 Chapter 9 implements an analogous historical identity check in the replay layer for `AddOperation`.
@@ -1466,7 +2119,9 @@ Chapter 9 implements an analogous historical identity check in the replay layer 
 The simulator maintains:
 
 ```cpp
+
 std::vector<Trade> trades;
+
 ```
 
 Generated trades are appended to this history.
@@ -1474,10 +2129,15 @@ Generated trades are appended to this history.
 Trade history is consumed by:
 
 ```text
+
 Market Metrics
+
 Execution Analysis
+
 Inventory / P&L
+
 Future Research
+
 ```
 
 Historical ITCH execution observations are not automatically inserted into this generated-trade history in the current Chapter 9 scope.
@@ -1493,20 +2153,31 @@ Chapter 6 introduces the first analytical layer above the simulation engine.
 It answers:
 
 ```text
+
 What does the current simulated market state look like?
+
 ```
 
 The architecture is:
 
 ```text
+
 OrderBook ──────────────┐
+
                         |
+
 Trade History ──────────┤
+
                         v
+
                  Metric Functions
+
                         |
+
                         v
+
                   MarketMetrics
+
 ```
 
 The metrics layer is read-only.
@@ -1514,10 +2185,15 @@ The metrics layer is read-only.
 It does not own:
 
 - orders
+
 - price levels
+
 - order-map state
+
 - simulator events
+
 - trade history
+
 - inventory state
 
 The same functions can be applied to a reconstructed historical `OrderBook` where the input data and analytical purpose justify doing so.
@@ -1529,16 +2205,27 @@ The same functions can be applied to a reconstructed historical `OrderBook` wher
 The Chapter 6 metric definitions and semantics remain unchanged:
 
 ```text
+
 best bid
+
 best ask
+
 mid-price
+
 absolute spread
+
 relative spread
+
 bid depth
+
 ask depth
+
 imbalance
+
 trade count
+
 trade volume
+
 ```
 
 The metrics layer remains read-only and does not duplicate `OrderBook` state.
@@ -1546,22 +2233,31 @@ The metrics layer remains read-only and does not duplicate `OrderBook` state.
 The central principle remains:
 
 ```text
+
 Metrics observe.
+
 Metrics do not mutate.
+
 ```
 
 The existing:
 
 ```cpp
+
 calculate_mid_price()
+
 ```
 
 remains the single midpoint definition used by:
 
 ```text
+
 Market Metrics
+
 Execution Reference
+
 Inventory Mark
+
 ```
 
 ---
@@ -1575,13 +2271,17 @@ Chapter 7 introduces execution analysis above the simulation engine.
 Chapter 6 asks:
 
 ```text
+
 What does the market look like?
+
 ```
 
 Chapter 7 asks:
 
 ```text
+
 What did a specific incoming order actually cost?
+
 ```
 
 The execution layer consumes generated trades and contextual information.
@@ -1597,26 +2297,47 @@ It does not maintain inventory state.
 The architecture is:
 
 ```text
+
 Simulator
+
     |
+
     +── Trade History
+
     |
+
     +── Incoming Order Side
+
     |
+
     +── Arrival Reference Price
+
     |
+
     v
+
 Execution Analysis
+
     |
+
     +── Executed Quantity
+
     +── Execution Value
+
     +── VWAP
+
     +── Slippage
+
     +── Execution Cost
+
     +── Liquidity Consumed
+
     |
+
     v
+
 ExecutionResult
+
 ```
 
 ---
@@ -1626,15 +2347,25 @@ ExecutionResult
 The Chapter 7 execution structure remains:
 
 ```text
+
 ExecutionResult
 
+
+
 ├── executed_quantity
+
 ├── execution_value
+
 ├── execution_vwap
+
 ├── reference_price
+
 ├── slippage
+
 ├── execution_cost
+
 └── liquidity_consumed
+
 ```
 
 The execution system remains based on generated simulator trades and the captured arrival context.
@@ -1652,29 +2383,45 @@ Chapter 8 introduces persistent inventory and accounting state above the matchin
 The module is:
 
 ```text
+
 inventory_model
+
 ```
 
 with:
 
 ```text
+
 cpp/include/lob/inventory_model.hpp
+
 cpp/src/inventory_model.cpp
+
 tests/cpp/test_inventory_model.cpp
+
 ```
 
 The architectural role is:
 
 ```text
+
 Trade + Incoming Side
+
         ↓
+
 InventoryModel
+
         ↓
+
 Persistent Position / Cash / Cost Basis / Realized P&L
+
         ↓
+
 Mark Price
+
         ↓
+
 Derived Unrealized P&L / Portfolio Value / Exposure
+
 ```
 
 Unlike Metrics and Execution Analysis, `InventoryModel` is **stateful**.
@@ -1692,36 +2439,59 @@ The complete Chapter 8 inventory model remains unchanged.
 Persistent state:
 
 ```text
+
 position
+
 cash
+
 avg_cost
+
 realized_pnl
+
 ```
 
 Derived state:
 
 ```text
+
 unrealized_pnl
+
 portfolio_value
+
 inventory_exposure
+
 ```
 
 The model supports:
 
 ```text
+
 long inventory
+
 short inventory
+
 weighted average cost basis
+
 partial closures
+
 full closures
+
 long → short crossing
+
 short → long crossing
+
 realized P&L
+
 unrealized P&L
+
 portfolio value
+
 inventory exposure
+
 flat-state cost-basis reset
+
 zero-quantity no-op
+
 ```
 
 The simulator updates `InventoryModel` from generated trades.
@@ -1739,11 +2509,17 @@ Chapter 9 introduces an external-market-data ingestion layer for reconstructing 
 The target protocol is:
 
 ```text
+
 Nasdaq TotalView-ITCH 5.0
+
 Binary Messages
+
 One Selected Security
+
 One Trading Day
+
 Deterministic Displayed-Book Reconstruction
+
 ```
 
 The main objective is not to make the existing simulator "more realistic" by rewriting its internals.
@@ -1753,43 +2529,73 @@ The objective is to build a clean external-market-data layer around the existing
 The architecture is:
 
 ```text
+
 Raw ITCH Binary Data
+
         ↓
+
 ITCH Parser
+
         ↓
+
 ItchMessage
+
         ↓
+
 ITCH Semantic Mapper
+
         ↓
+
 ReplayOperation
+
         ↓
+
 ItchReplay
+
         ↓
+
 Existing OrderBook
+
         ↓
+
 Reconstructed Historical Book
+
 ```
 
 The important distinction is:
 
 ```text
+
 Simulation
+
     incoming order
+
         ↓
+
     matching engine
+
         ↓
+
     generated Trade
+
 ```
 
 versus:
 
 ```text
+
 Historical Replay
+
     exchange message
+
         ↓
+
     observation of what happened
+
         ↓
+
     historical book mutation
+
 ```
 
 A historical execution message therefore must not automatically become a synthetic incoming order.
@@ -1801,61 +2607,105 @@ A historical execution message therefore must not automatically become a synthet
 The official protocol target for this chapter is:
 
 ```text
+
 Nasdaq TotalView-ITCH 5.0
+
 ```
 
 The initial Chapter 9 scope is:
 
 ```text
+
 binary message format
+
 one selected security
+
 one trading day
+
 displayed-book reconstruction
+
 deterministic message processing
+
 ```
 
 Relevant supported message types are:
 
 ```text
+
 A
+
 Add Order — No MPID Attribution
 
+
+
 F
+
 Add Order — MPID Attribution
 
+
+
 E
+
 Order Executed
 
+
+
 C
+
 Order Executed With Price
 
+
+
 X
+
 Order Cancel
 
+
+
 D
+
 Order Delete
 
+
+
 U
+
 Order Replace
 
+
+
 R
+
 Stock Directory
 
+
+
 S
+
 System Event
+
 ```
 
 The current v1 implementation does not yet parse:
 
 ```text
+
 P
+
 Trade — Non-Cross
 
+
+
 Q
+
 Cross Trade
 
+
+
 B
+
 Broken Trade
+
 ```
 
 because they are outside the current displayed-book reconstruction scope.
@@ -1867,7 +2717,9 @@ because they are outside the current displayed-book reconstruction scope.
 The protocol representation is defined in:
 
 ```text
+
 cpp/include/lob/itch_message.hpp
+
 ```
 
 The protocol representation uses concrete decoded message structures.
@@ -1875,17 +2727,29 @@ The protocol representation uses concrete decoded message structures.
 The top-level message representation is:
 
 ```cpp
+
 using ItchMessage = std::variant<
+
     AddOrderMessage,
+
     AddOrderMPIDMessage,
+
     ExecuteMessage,
+
     ExecuteWithPriceMessage,
+
     CancelMessage,
+
     DeleteMessage,
+
     ReplaceMessage,
+
     StockDirectoryMessage,
+
     SystemEventMessage
+
 >;
+
 ```
 
 The concrete structures represent protocol fields rather than simulator semantics.
@@ -1893,24 +2757,39 @@ The concrete structures represent protocol fields rather than simulator semantic
 The current message structures include:
 
 ```text
+
 AddOrderMessage
+
 AddOrderMPIDMessage
+
 ExecuteMessage
+
 ExecuteWithPriceMessage
+
 CancelMessage
+
 DeleteMessage
+
 ReplaceMessage
+
 StockDirectoryMessage
+
 SystemEventMessage
+
 ```
 
 The protocol model remains separate from:
 
 ```text
+
 Event
+
 Order
+
 Trade
+
 ReplayOperation
+
 ```
 
 This prevents external protocol concerns from leaking into the synthetic event-driven simulation model.
@@ -1924,36 +2803,63 @@ The decoded message representation contains fields needed for the current recons
 These include:
 
 ```text
+
 Timestamp
+
 Tracking Number
+
 Order Reference Number
+
 Match Number
+
 Stock Locate
+
 Shares
+
 Stock Symbol
+
 Price
+
 Side
+
 Execution Price
+
 Printability
+
 Cancelled Shares
+
 Old Order Reference
+
 New Order Reference
+
 MPID
+
 Stock Directory metadata
+
 System Event code
+
 ```
 
 The current implementation uses protocol-specific aliases/types for fields such as:
 
 ```text
+
 StockLocate
+
 TrackingNumber
+
 OrderReferenceNumber
+
 MatchNumber
+
 Shares
+
 StockSymbol
+
 MPID
+
 ItchPrice
+
 ```
 
 The protocol representation preserves exact integer-compatible values.
@@ -1967,7 +2873,9 @@ Prices are not converted through floating-point arithmetic during decoding.
 ITCH timestamps are represented as:
 
 ```text
+
 nanoseconds since midnight
+
 ```
 
 The decoded `Timestamp` remains an integer type.
@@ -1989,19 +2897,25 @@ It is not assumed to be a permanent security identifier.
 For the current one-security replay scope:
 
 ```text
+
 selected Stock Locate
+
 ```
 
 is supplied to:
 
 ```cpp
+
 ItchMapper
+
 ```
 
 The mapper checks:
 
 ```text
+
 message.stock_locate
+
 ```
 
 against the selected value.
@@ -2017,7 +2931,9 @@ This keeps the Chapter 9 scope deliberately limited to one selected instrument.
 For the current one-day replay scope, the ITCH:
 
 ```text
+
 Order Reference Number
+
 ```
 
 is used as the order identity for reconstructing the order book.
@@ -2025,9 +2941,13 @@ is used as the order identity for reconstructing the order book.
 The semantic relationship is:
 
 ```text
+
 ITCH Order Reference Number
+
         ↓
+
 OrderId
+
 ```
 
 for the current replay.
@@ -2035,11 +2955,17 @@ for the current replay.
 The order identity must remain consistent throughout:
 
 ```text
+
 Add
+
 Execution
+
 Cancel
+
 Delete
+
 Replace
+
 ```
 
 until a replace introduces a new order reference.
@@ -2051,49 +2977,73 @@ until a replace introduces a new order reference.
 The parser is defined in:
 
 ```text
+
 cpp/include/lob/itch_parser.hpp
+
 cpp/src/itch_parser.cpp
+
 ```
 
 The parser accepts raw binary bytes:
 
 ```cpp
+
 const std::vector<Byte>&
+
 ```
 
 and the public dispatcher returns:
 
 ```cpp
+
 std::variant<ItchMessage, ParseError>
+
 ```
 
 The parser dispatches to:
 
 ```text
+
 parse_A()
+
 parse_F()
+
 parse_E()
+
 parse_C()
+
 parse_X()
+
 parse_D()
+
 parse_U()
+
 parse_R()
+
 parse_S()
+
 ```
 
 through:
 
 ```cpp
+
 get_type_parser()
+
 ```
 
 The parser remains independent of:
 
 ```text
+
 OrderBook
+
 Simulator
+
 Trade History
+
 InventoryModel
+
 ```
 
 ---
@@ -2103,27 +3053,45 @@ InventoryModel
 The current parser contains:
 
 ```text
+
 read_bytes()
+
 read_be()
+
 read_side()
+
 read_chars()
+
 get_type_parser()
+
 ```
 
 The core decoding behavior is:
 
 ```text
+
 raw bytes
+
     ↓
+
 message type
+
     ↓
+
 message-specific offsets
+
     ↓
+
 big-endian field decoding
+
     ↓
+
 semantic field validation
+
     ↓
+
 decoded message
+
 ```
 
 ---
@@ -2135,7 +3103,9 @@ ITCH numeric fields are decoded as big-endian values.
 The current helper:
 
 ```cpp
+
 read_be()
+
 ```
 
 reads a specified number of bytes and constructs the integer value in protocol order.
@@ -2151,13 +3121,21 @@ Each parser validates the required message length before reading fields.
 Conceptually:
 
 ```text
+
 Raw Message
+
     ↓
+
 Expected minimum length
+
     ↓
+
 Is message long enough?
+
     ├── NO → InvalidMessageLength
+
     └── YES → Decode
+
 ```
 
 This protects field access from truncated input.
@@ -2165,13 +3143,17 @@ This protects field access from truncated input.
 The empty-input path is also explicitly handled before accessing:
 
 ```cpp
+
 bytes[0]
+
 ```
 
 and returns:
 
 ```text
+
 IncompleteMessage
+
 ```
 
 for an empty raw message.
@@ -2183,21 +3165,33 @@ for an empty raw message.
 The parser currently defines:
 
 ```cpp
+
 enum class ParseError {
+
     UnknownMessageType,
+
     IncompleteMessage,
+
     InvalidMessageLength,
+
     MalformedMessage
+
 };
+
 ```
 
 The error categories distinguish:
 
 ```text
+
 unknown protocol message type
+
 incomplete / empty input
+
 invalid message length
+
 malformed field content
+
 ```
 
 Malformed input is handled deterministically.
@@ -2213,26 +3207,39 @@ The parser never mutates the market state when returning an error.
 The current parser decodes:
 
 ```text
+
 Stock Locate
+
 Tracking Number
+
 Timestamp
+
 Order Reference Number
+
 Side
+
 Shares
+
 Stock Symbol
+
 Price
+
 ```
 
 The semantic result is:
 
 ```text
+
 AddOrderMessage
+
 ```
 
 The mapper later converts it into:
 
 ```text
+
 AddOperation
+
 ```
 
 ---
@@ -2244,7 +3251,9 @@ AddOperation
 It contains the common displayed-order information plus:
 
 ```text
+
 MPID
+
 ```
 
 The current mapper does not require MPID to be stored inside the internal `Order` because the existing `Order` structure has no MPID field and the current reconstruction objective is displayed-book state.
@@ -2252,9 +3261,13 @@ The current mapper does not require MPID to be stored inside the internal `Order
 Semantically:
 
 ```text
+
 F
+
   ↓
+
 AddOperation
+
 ```
 
 The MPID remains available in the protocol representation.
@@ -2268,31 +3281,49 @@ The MPID remains available in the protocol representation.
 The key semantic rule is:
 
 ```text
+
 E
+
     ↓
+
 Existing resting order
+
     ↓
+
 Subtract executed shares
+
 ```
 
 It does not mean:
 
 ```text
+
 E
+
     ↓
+
 create incoming order
+
     ↓
+
 matching engine
+
 ```
 
 Therefore:
 
 ```text
+
 E
+
     ↓
+
 ExecuteMessage
+
     ↓
+
 ReduceOperation
+
 ```
 
 The match number is preserved in the decoded protocol message.
@@ -2306,17 +3337,25 @@ The match number is preserved in the decoded protocol message.
 The decoded message contains:
 
 ```text
+
 Order Reference Number
+
 Executed Shares
+
 Match Number
+
 Execution Price
+
 Printability
+
 ```
 
 The displayed-book effect remains:
 
 ```text
+
 reduce / remove historical resting order
+
 ```
 
 The execution price does not modify the resting order's displayed book price.
@@ -2324,11 +3363,17 @@ The execution price does not modify the resting order's displayed book price.
 Therefore:
 
 ```text
+
 C
+
     ↓
+
 ExecuteWithPriceMessage
+
     ↓
+
 ReduceOperation
+
 ```
 
 The execution-price field remains available for future historical execution analysis if that scope is later introduced.
@@ -2344,26 +3389,35 @@ This is a critical semantic distinction.
 Suppose:
 
 ```text
+
 Current Quantity = 500
+
 Cancelled Shares = 120
+
 ```
 
 The resulting quantity is:
 
 ```text
+
 500 - 120 = 380
+
 ```
 
 The cancellation message therefore maps to:
 
 ```text
+
 ReduceOperation
+
 ```
 
 not:
 
 ```text
+
 Modify to quantity = 120
+
 ```
 
 This prevents a common historical-replay error.
@@ -2377,11 +3431,17 @@ This prevents a common historical-replay error.
 The semantic transformation is:
 
 ```text
+
 D
+
     ↓
+
 DeleteMessage
+
     ↓
+
 RemoveOperation
+
 ```
 
 The existing order-book cancellation/removal path performs the actual mutation.
@@ -2395,19 +3455,29 @@ The existing order-book cancellation/removal path performs the actual mutation.
 The historical state transition is:
 
 ```text
+
 Old Order Reference
+
         ↓
+
 Remove old identity
+
         ↓
+
 New Order Reference
+
         ↓
+
 Create new order
+
 ```
 
 This is not equivalent to the existing synthetic:
 
 ```cpp
+
 modify(order_id, new_price, new_quantity)
+
 ```
 
 because the ITCH protocol introduces a new order reference.
@@ -2415,11 +3485,17 @@ because the ITCH protocol introduces a new order reference.
 The semantic transformation is:
 
 ```text
+
 U
+
     ↓
+
 ReplaceMessage
+
     ↓
+
 ReplaceOperation
+
 ```
 
 The replay layer resolves the original order's side from the existing historical order before removing it.
@@ -2437,13 +3513,17 @@ It does not directly mutate the displayed order book in the current Chapter 9 v1
 It is represented as:
 
 ```text
+
 StockDirectoryMessage
+
 ```
 
 but the current mapper returns:
 
 ```text
+
 ReplayError::IgnoredMessage
+
 ```
 
 for this message.
@@ -2459,7 +3539,9 @@ This allows the protocol model to recognize `R` without forcing metadata into th
 It is represented as:
 
 ```text
+
 SystemEventMessage
+
 ```
 
 but is currently ignored by the displayed-book mutation layer.
@@ -2467,7 +3549,9 @@ but is currently ignored by the displayed-book mutation layer.
 The current mapper returns:
 
 ```text
+
 ReplayError::IgnoredMessage
+
 ```
 
 for `S`.
@@ -2481,16 +3565,23 @@ System/session state handling can be expanded later if the real-feed replay requ
 The mapper is defined in:
 
 ```text
+
 cpp/include/lob/itch_mapper.hpp
+
 cpp/src/itch_mapper.cpp
+
 ```
 
 Its purpose is:
 
 ```text
+
 Translate protocol semantics
+
         ↓
+
 Into replay semantics
+
 ```
 
 It does not mutate the `OrderBook`.
@@ -2498,21 +3589,33 @@ It does not mutate the `OrderBook`.
 Its public operation is:
 
 ```cpp
+
 std::variant<
+
     ReplayOperation,
+
     ReplayError
+
 >
+
 map(
+
     const ItchMessage& message
+
 );
+
 ```
 
 The mapper also owns the selected-security filter:
 
 ```cpp
+
 ItchMapper(
+
     StockLocate selected_stock_locate
+
 );
+
 ```
 
 ---
@@ -2522,21 +3625,33 @@ ItchMapper(
 The current replay error type is:
 
 ```cpp
+
 enum class ReplayError {
+
     UnknownOrder,
+
     InvalidLifecycle,
+
     InvalidQuantity,
+
     IgnoredMessage
+
 };
+
 ```
 
 The purpose is to distinguish:
 
 ```text
+
 order identity problem
+
 invalid lifecycle
+
 invalid quantity
+
 message intentionally ignored
+
 ```
 
 The current replay implementation uses `InvalidLifecycle` for missing historical orders in the reduction path.
@@ -2548,46 +3663,77 @@ The current replay implementation uses `InvalidLifecycle` for missing historical
 The semantic operation structures are:
 
 ```cpp
+
 struct AddOperation {
+
     OrderId order_id;
+
     Side side;
+
     Quantity quantity;
+
     Price price;
+
 };
+
 ```
 
 ```cpp
+
 struct ReduceOperation {
+
     OrderId order_id;
+
     Quantity quantity;
+
 };
+
 ```
 
 ```cpp
+
 struct RemoveOperation {
+
     OrderId order_id;
+
 };
+
 ```
 
 ```cpp
+
 struct ReplaceOperation {
+
     OrderId old_order_id;
+
     OrderId new_order_id;
+
     Side side;
+
     Quantity quantity;
+
     Price price;
+
 };
+
 ```
 
 The combined operation type is:
 
 ```cpp
+
 using ReplayOperation = std::variant<
+
     AddOperation,
+
     ReduceOperation,
+
     RemoveOperation,
+
     ReplaceOperation
+
 >;
+
 ```
 
 The variant itself identifies the semantic operation, so a separate operation enum is not required.
@@ -2599,48 +3745,83 @@ The variant itself identifies the semantic operation, so a separate operation en
 The current mapping is:
 
 ```text
+
 A
+
     → AddOperation
+
+
 
 F
+
     → AddOperation
 
+
+
 E
+
     → ReduceOperation
+
+
 
 C
+
     → ReduceOperation
+
+
 
 X
+
     → ReduceOperation
 
+
+
 D
+
     → RemoveOperation
 
+
+
 U
+
     → ReplaceOperation
 
+
+
 R
+
     → IgnoredMessage
 
+
+
 S
+
     → IgnoredMessage
+
 ```
 
 The important design principle is:
 
 ```text
+
 Protocol meaning
+
         ↓
+
 Replay meaning
+
 ```
 
 rather than:
 
 ```text
+
 Protocol message
+
         ↓
+
 Synthetic simulator Event
+
 ```
 
 ---
@@ -2652,13 +3833,21 @@ The mapper first determines whether a message belongs to the selected security w
 Conceptually:
 
 ```text
+
 ItchMessage
+
     ↓
+
 Stock Locate
+
     ↓
+
 Selected security?
+
     ├── NO → IgnoredMessage
+
     └── YES → semantic mapping
+
 ```
 
 Messages for the selected security continue through the replay path.
@@ -2674,19 +3863,33 @@ The main mapper uses the `ItchMessage` variant to dispatch to private semantic m
 Conceptually:
 
 ```text
+
 ItchMessage
+
       ↓
+
 std::visit
+
       ↓
+
 Concrete protocol message
+
       ↓
+
 map_add()
+
 map_add_mpid()
+
 map_execute()
+
 map_execute_with_price()
+
 map_cancel()
+
 map_delete()
+
 map_replace()
+
 ```
 
 The private mapping functions remain responsible only for creating semantic operation values.
@@ -2694,11 +3897,17 @@ The private mapping functions remain responsible only for creating semantic oper
 The mapper does not:
 
 ```text
+
 find orders
+
 modify the OrderBook
+
 run matching
+
 update inventory
+
 generate trades
+
 ```
 
 ---
@@ -2708,21 +3917,29 @@ generate trades
 The replay layer is defined in:
 
 ```text
+
 cpp/include/lob/itch_replay.hpp
+
 cpp/src/itch_replay.cpp
+
 ```
 
 Its responsibility is:
 
 ```text
+
 Apply historical state-transition operations
+
 to the existing OrderBook
+
 ```
 
 It holds:
 
 ```cpp
+
 OrderBook& order_book;
+
 ```
 
 It does not create a second order-book representation.
@@ -2730,13 +3947,21 @@ It does not create a second order-book representation.
 The current public API is:
 
 ```cpp
+
 std::variant<
+
     std::monostate,
+
     ReplayError
+
 >
+
 apply(
+
     const ReplayOperation& operation
+
 );
+
 ```
 
 ---
@@ -2746,28 +3971,47 @@ apply(
 The replay layer uses `std::visit` to dispatch:
 
 ```text
+
 ReplayOperation
+
       ↓
+
 std::visit
+
       ↓
+
 Concrete operation
+
       |
+
       +── AddOperation
+
       |
+
       +── ReduceOperation
+
       |
+
       +── RemoveOperation
+
       |
+
       +── ReplaceOperation
+
 ```
 
 The corresponding private functions are:
 
 ```text
+
 apply_add()
+
 apply_reduce()
+
 apply_remove()
+
 apply_replace()
+
 ```
 
 ---
@@ -2777,17 +4021,29 @@ apply_replace()
 The `AddOperation` path is:
 
 ```text
+
 AddOperation
+
     ↓
+
 Check order identity
+
     ↓
+
 Already exists?
+
     ├── YES → InvalidLifecycle
+
     └── NO
+
          ↓
+
 Create Order
+
          ↓
+
 OrderBook::add()
+
 ```
 
 The identity check is important because the existing `OrderBook::add()` API does not itself provide the historical replay-level lifecycle error semantics required by Chapter 9.
@@ -2801,29 +4057,49 @@ The test suite explicitly verifies duplicate historical adds.
 The current reduction path is:
 
 ```text
+
 ReduceOperation
+
       ↓
+
 find_order(order_id)
+
       ↓
+
 Does order exist?
+
  ├── NO → InvalidLifecycle
+
  │
+
  └── YES
+
       ↓
+
 quantity <= current quantity?
+
  ├── NO → InvalidQuantity
+
  │
+
  └── YES
+
       ↓
+
 remaining = current quantity - reduction
+
       ↓
+
 OrderBook::modify(order_id, same price, remaining)
+
 ```
 
 When the resulting quantity is zero:
 
 ```text
+
 modify(..., 0)
+
 ```
 
 uses the existing cancellation semantics.
@@ -2831,11 +4107,17 @@ uses the existing cancellation semantics.
 This avoids duplicating the low-level:
 
 ```text
+
 OrderMap
+
 PriceLevel
+
 vector erase
+
 shifted index
+
 empty level
+
 ```
 
 mechanics in the replay layer.
@@ -2847,9 +4129,13 @@ mechanics in the replay layer.
 The `RemoveOperation` path uses:
 
 ```text
+
 RemoveOperation
+
       ↓
+
 OrderBook::cancel()
+
 ```
 
 The existing `OrderBook` handles the underlying book-state mechanics.
@@ -2857,11 +4143,17 @@ The existing `OrderBook` handles the underlying book-state mechanics.
 This reuses the existing:
 
 ```text
+
 OrderMap
+
 PriceLevel
+
 Order
+
 index synchronization
+
 empty level removal
+
 ```
 
 logic.
@@ -2875,23 +4167,41 @@ The replay layer therefore does not duplicate core market-state implementation.
 The `ReplaceOperation` path is:
 
 ```text
+
 ReplaceOperation
+
       ↓
+
 Find old order
+
       ↓
+
 Recover old side
+
       ↓
+
 Remove old order
+
       ↓
+
 Create new Order
+
       ↓
+
 New order reference
+
       ↓
+
 New quantity
+
       ↓
+
 New price
+
       ↓
+
 OrderBook::add()
+
 ```
 
 The old identity is removed.
@@ -2909,7 +4219,9 @@ An ITCH `U` message provides the old and new order references, quantity, and pri
 Therefore the current replay logic obtains:
 
 ```text
+
 old_order->side
+
 ```
 
 before cancelling the old order.
@@ -2917,13 +4229,21 @@ before cancelling the old order.
 Conceptually:
 
 ```text
+
 Find old order
+
     ↓
+
 Read old side
+
     ↓
+
 Cancel old order
+
     ↓
+
 Create new order using old side
+
 ```
 
 This avoids inventing a side that is not present in the decoded replacement message.
@@ -2931,7 +4251,9 @@ This avoids inventing a side that is not present in the decoded replacement mess
 The mapper currently stores:
 
 ```text
+
 Side::NONE
+
 ```
 
 inside `ReplaceOperation` as a placeholder, while the replay layer derives the actual historical side from the existing order.
@@ -2945,25 +4267,39 @@ The replay layer validates operations against current reconstructed book state w
 Current validation includes:
 
 ```text
+
 ADD:
+
     order must not already exist
+
 ```
 
 ```text
+
 REDUCE:
+
     order must exist
+
     reduction quantity must be <= current quantity
+
 ```
 
 ```text
+
 REMOVE:
+
     existing OrderBook cancellation path handles removal
+
 ```
 
 ```text
+
 REPLACE:
+
     old order must exist
+
     old order side is recovered before removal
+
 ```
 
 The existing `OrderBook` remains the authority for its own low-level storage consistency.
@@ -2975,7 +4311,9 @@ The existing `OrderBook` remains the authority for its own low-level storage con
 Successful replay operations return:
 
 ```cpp
+
 std::monostate{}
+
 ```
 
 Invalid operations return a `ReplayError`.
@@ -2991,23 +4329,33 @@ The replay layer does not currently throw exceptions for normal feed-state incon
 For a historical cancel:
 
 ```text
+
 ITCH X
+
 ```
 
 the state transition is:
 
 ```text
+
 Current Quantity
+
         ↓
+
 Current Quantity - Cancelled Shares
+
         ↓
+
 If zero → remove
+
 ```
 
 This is different from synthetic:
 
 ```text
+
 MODIFY
+
 ```
 
 because ITCH cancellation quantity represents a quantity decrement rather than a target quantity.
@@ -3015,7 +4363,9 @@ because ITCH cancellation quantity represents a quantity decrement rather than a
 The mapper therefore explicitly uses:
 
 ```text
+
 ReduceOperation
+
 ```
 
 for `X`.
@@ -3027,26 +4377,35 @@ for `X`.
 Historical execution messages:
 
 ```text
+
 E
+
 C
+
 ```
 
 produce:
 
 ```text
+
 ReduceOperation
+
 ```
 
 and never:
 
 ```text
+
 ADD Event
+
 ```
 
 or:
 
 ```text
+
 process_order()
+
 ```
 
 The reconstructed book changes because the historical resting order lost quantity.
@@ -3054,13 +4413,17 @@ The reconstructed book changes because the historical resting order lost quantit
 The replay system therefore answers:
 
 ```text
+
 What did the historical exchange report?
+
 ```
 
 rather than:
 
 ```text
+
 What would my matching engine have done?
+
 ```
 
 ---
@@ -3072,25 +4435,41 @@ This is one of the most important Chapter 9 invariants.
 Wrong architecture:
 
 ```text
+
 ITCH E
+
    ↓
+
 Create incoming order
+
    ↓
+
 Matching Engine
+
    ↓
+
 Generate Trade
+
 ```
 
 Correct architecture:
 
 ```text
+
 ITCH E
+
    ↓
+
 Historical execution observation
+
    ↓
+
 Reduce historical order
+
    ↓
+
 Updated book
+
 ```
 
 The same applies to `C`.
@@ -3104,7 +4483,9 @@ This prevents the replay engine from inventing new market behavior from historic
 Synthetic event processing uses:
 
 ```text
+
 timestamp + sequence
+
 ```
 
 for deterministic validation.
@@ -3116,15 +4497,21 @@ The replay layer does not arbitrarily sort messages by timestamp.
 The current principle is:
 
 ```text
+
 Authoritative feed order
+
     ↓
+
 Replay sequence
+
 ```
 
 rather than:
 
 ```text
+
 Re-sort all messages
+
 ```
 
 This preserves the order in which state transitions were supplied by the external feed.
@@ -3136,36 +4523,59 @@ This preserves the order in which state transitions were supplied by the externa
 Given the same:
 
 ```text
+
 Initial OrderBook
+
 Selected Stock Locate
+
 Same ITCH message sequence
+
 ```
 
 the replay should produce:
 
 ```text
+
 Same decoded messages
+
 Same semantic operations
+
 Same operation order
+
 Same final OrderBook state
+
 ```
 
 Conceptually:
 
 ```text
+
 Input Bytes
+
     ↓
+
 Parser
+
     ↓
+
 ItchMessage
+
     ↓
+
 Mapper
+
     ↓
+
 ReplayOperation
+
     ↓
+
 ItchReplay
+
     ↓
+
 OrderBook
+
 ```
 
 is deterministic.
@@ -3177,16 +4587,23 @@ is deterministic.
 The parser must not mutate:
 
 ```text
+
 OrderBook
+
 Simulator
+
 Trade History
+
 InventoryModel
+
 ```
 
 Its only responsibility is:
 
 ```text
+
 bytes → decoded protocol message
+
 ```
 
 ---
@@ -3196,18 +4613,27 @@ bytes → decoded protocol message
 The mapper must not mutate:
 
 ```text
+
 OrderBook
+
 Simulator
+
 Trade History
+
 InventoryModel
+
 ```
 
 Its responsibility is:
 
 ```text
+
 decoded protocol message
+
         ↓
+
 semantic replay operation
+
 ```
 
 ---
@@ -3219,7 +4645,9 @@ The replay layer does not own a second order-book structure.
 The existing:
 
 ```cpp
+
 OrderBook
+
 ```
 
 remains the single source of truth for reconstructed displayed liquidity.
@@ -3227,9 +4655,13 @@ remains the single source of truth for reconstructed displayed liquidity.
 This means:
 
 ```text
+
 No ITCHOrderBook
+
 No NasdaqOrderBook
+
 No HistoricalOrderBook
+
 ```
 
 was introduced.
@@ -3243,63 +4675,111 @@ The replay layer is an adapter over the existing market-state representation.
 The complete current Chapter 9 flow is:
 
 ```text
+
 Raw ITCH Bytes
+
        ↓
+
 get_type_parser()
+
        ↓
+
 ItchMessage
+
        ↓
+
 ItchMapper::map()
+
        ↓
+
 ReplayOperation
+
        ↓
+
 ItchReplay::apply()
+
        ↓
+
 Existing OrderBook
+
        ↓
+
 Reconstructed Historical State
+
 ```
 
 Examples:
 
 ```text
+
 A
+
  ↓
+
 AddOrderMessage
+
  ↓
+
 AddOperation
+
  ↓
+
 OrderBook::add()
+
 ```
 
 ```text
+
 X
+
  ↓
+
 CancelMessage
+
  ↓
+
 ReduceOperation
+
  ↓
+
 OrderBook::modify()
+
 ```
 
 ```text
+
 D
+
  ↓
+
 DeleteMessage
+
  ↓
+
 RemoveOperation
+
  ↓
+
 OrderBook::cancel()
+
 ```
 
 ```text
+
 U
+
  ↓
+
 ReplaceMessage
+
  ↓
+
 ReplaceOperation
+
  ↓
+
 cancel old + add new
+
 ```
 
 ---
@@ -3309,27 +4789,45 @@ cancel old + add new
 Synthetic simulation:
 
 ```text
+
 Event
+
    ↓
+
 Simulator
+
    ↓
+
 OrderBook operation
+
    ↓
+
 Matching if ADD crosses
+
    ↓
+
 Trade
+
 ```
 
 Historical replay:
 
 ```text
+
 ITCH
+
    ↓
+
 Protocol decoding
+
    ↓
+
 Semantic interpretation
+
    ↓
+
 Historical book mutation
+
 ```
 
 A historical execution has already happened in the feed.
@@ -3345,42 +4843,63 @@ It should not be simulated again.
 The current implementation uses:
 
 ```cpp
+
 std::vector<PriceLevel> bids;
+
 std::vector<PriceLevel> asks;
+
 ```
 
 Each price level contains:
 
 ```cpp
+
 std::vector<Order> orders;
+
 ```
 
 The `OrderBook` also contains:
 
 ```cpp
+
 OrderMap order_map;
+
 ```
 
 The simulator stores:
 
 ```cpp
+
 std::vector<Event> events;
+
 std::vector<Trade> trades;
 
+
+
 SidesByOrder sides_by_order;
+
 ReferencePricesByOrder reference_prices_by_order;
 
+
+
 InventoryModel inventory_model;
+
 ```
 
 Chapter 9 adds protocol/replay structures:
 
 ```text
+
 ItchMessage
+
 ReplayOperation
+
 ReplayError
+
 ItchMapper
+
 ItchReplay
+
 ```
 
 These structures do not replace the established order-book storage.
@@ -3390,54 +4909,99 @@ These structures do not replace the established order-book storage.
 ## 164. Current Ownership Hierarchy
 
 ```text
+
 Simulator
 
+
+
 ├── events
+
 │   └── Event
+
 │
+
 ├── trades
+
 │   └── Trade
+
 │
+
 ├── sides_by_order
+
 │   └── OrderId → Side
+
 │
+
 ├── reference_prices_by_order
+
 │   └── OrderId → MidPrice
+
 │
+
 ├── inventory_model
+
 │   ├── position
+
 │   ├── cash
+
 │   ├── avg_cost
+
 │   └── realized_pnl
+
 │
+
 └── order_book
+
     │
+
     ├── bids
+
     │   └── PriceLevel
+
     │       └── vector<Order>
+
     │
+
     ├── asks
+
     │   └── PriceLevel
+
     │       └── vector<Order>
+
     │
+
     └── order_map
+
         └── unordered_map<OrderId, OrderLocation>
+
 ```
 
 The historical replay ownership path is:
 
 ```text
+
 ITCH Parser
+
     ↓
+
 ItchMessage
+
     ↓
+
 ITCH Mapper
+
     ↓
+
 ReplayOperation
+
     ↓
+
 ItchReplay
+
     ↓
+
 existing OrderBook
+
 ```
 
 The parser owns no order-book state.
@@ -3453,37 +5017,69 @@ The replay layer references existing market state.
 ## 165. Current OrderBook API
 
 ```cpp
+
 void add(const Order& order);
+
+
 
 bool cancel(OrderId order_id);
 
+
+
 Price best_bid() const;
+
+
 
 Price best_ask() const;
 
+
+
 Price spread() const;
+
+
 
 std::vector<Trade> process_order(Order& order);
 
+
+
 Order* find_order(OrderId order_id);
 
+
+
 bool modify(
+
     OrderId order_id,
+
     Price new_price,
+
     Quantity new_quantity
+
 );
+
+
 
 void sort_price_levels();
 
+
+
 void update_shifted_indices(
+
     Side side,
+
     Price price,
+
     std::size_t erased_index
+
 );
+
+
 
 const std::vector<PriceLevel>& bid_levels() const;
 
+
+
 const std::vector<PriceLevel>& ask_levels() const;
+
 ```
 
 ---
@@ -3491,19 +5087,33 @@ const std::vector<PriceLevel>& ask_levels() const;
 ## 166. Current OrderMap API
 
 ```cpp
+
 void add(
+
     OrderId order_id,
+
     OrderLocation order_location
+
 );
+
+
 
 void remove(OrderId order_id);
 
+
+
 std::optional<OrderLocation> find(OrderId order_id);
 
+
+
 void update(
+
     OrderId order_id,
+
     OrderLocation new_location
+
 );
+
 ```
 
 ---
@@ -3511,39 +5121,69 @@ void update(
 ## 167. Current Simulator API
 
 ```cpp
+
 Simulator(Cash initial_cash);
+
+
 
 void add_event(Event event);
 
+
+
 void process_event(const Event& event);
+
+
 
 void process_events();
 
+
+
 ExecutionResultsByOrder
+
 calculate_execution_results();
 
+
+
 InventoryModel&
+
 get_inventory_model();
+
 ```
 
 Main simulator state:
 
 ```cpp
+
 OrderBook order_book;
+
+
 
 Timestamp current_time = 0;
 
+
+
 Sequence last_sequence = 0;
+
+
 
 InventoryModel inventory_model;
 
+
+
 std::vector<Event> events;
+
+
 
 std::vector<Trade> trades;
 
+
+
 SidesByOrder sides_by_order;
 
+
+
 ReferencePricesByOrder reference_prices_by_order;
+
 ```
 
 ---
@@ -3551,34 +5191,63 @@ ReferencePricesByOrder reference_prices_by_order;
 ## 168. Current Metrics API
 
 ```cpp
+
 Price calculate_best_bid(const OrderBook& book);
+
+
 
 Price calculate_best_ask(const OrderBook& book);
 
+
+
 MidPrice calculate_mid_price(const OrderBook& book);
+
+
 
 Price calculate_spread(const OrderBook& book);
 
+
+
 RelativeSpread calculate_relative_spread(const OrderBook& book);
+
+
 
 Quantity calculate_bid_depth(const OrderBook& book);
 
+
+
 Quantity calculate_ask_depth(const OrderBook& book);
+
+
 
 Imbalance calculate_imbalance(const OrderBook& book);
 
+
+
 TradeCount calculate_trade_count(
+
     const std::vector<Trade>& trades
+
 );
+
+
 
 Quantity calculate_trade_volume(
+
     const std::vector<Trade>& trades
+
 );
 
+
+
 MarketMetrics calculate_metrics(
+
     const OrderBook& book,
+
     const std::vector<Trade>& trades
+
 );
+
 ```
 
 ---
@@ -3586,50 +5255,95 @@ MarketMetrics calculate_metrics(
 ## 169. Current Execution API
 
 ```cpp
+
 TradesByIncomingOrder group_trades_by_incoming_order(
+
     const std::vector<Trade>& trades
+
 );
+
+
 
 Quantity calculate_executed_quantity(
+
     std::vector<Trade> trades
+
 );
+
+
 
 ExecutionValue calculate_executed_value(
+
     std::vector<Trade> trades
+
 );
+
+
 
 Vwap calculate_VWAP(
+
     std::vector<Trade> trades
+
 );
+
+
 
 Slippage calculate_slippage(
+
     std::vector<Trade> trades,
+
     Side side,
+
     MidPrice ref_price
+
 );
+
+
 
 ExecutionCost calculate_execution_cost(
+
     std::vector<Trade> trades,
+
     Side side,
+
     MidPrice ref_price
+
 );
+
+
 
 Quantity calculate_liquidity_consumed(
+
     std::vector<Trade> trades
+
 );
+
+
 
 ExecutionResult calculate_execution_result(
+
     std::vector<Trade> trades,
+
     Side side,
+
     MidPrice ref_price
+
 );
 
+
+
 ExecutionResultsByOrder
+
 calculate_execution_results_by_order(
+
     std::vector<Trade> trades,
+
     SidesByOrder sides,
+
     ReferencePricesByOrder ref_prices
+
 );
+
 ```
 
 ---
@@ -3637,32 +5351,59 @@ calculate_execution_results_by_order(
 ## 170. Current InventoryModel API
 
 ```cpp
+
 InventoryModel(Cash initial_cash);
 
+
+
 void process_trade(
+
     const Trade& trade,
+
     Side side
+
 );
+
+
 
 Position get_position();
 
+
+
 Cash get_cash();
+
+
 
 AvgCost get_avg_cost();
 
+
+
 Pnl get_realized_pnl();
 
+
+
 Pnl unrealized_pnl(
+
     MidPrice mark_price
+
 );
+
+
 
 Cash portfolio_value(
+
     MidPrice mark_price
+
 );
 
+
+
 Cash inventory_exposure(
+
     MidPrice mark_price
+
 );
+
 ```
 
 ---
@@ -3670,55 +5411,105 @@ Cash inventory_exposure(
 ## 171. Current ITCH Parser API
 
 ```cpp
+
 std::variant<ItchMessage, ParseError>
+
 get_type_parser(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<AddOrderMessage, ParseError>
+
 parse_A(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<AddOrderMPIDMessage, ParseError>
+
 parse_F(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<ExecuteMessage, ParseError>
+
 parse_E(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<ExecuteWithPriceMessage, ParseError>
+
 parse_C(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<CancelMessage, ParseError>
+
 parse_X(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<DeleteMessage, ParseError>
+
 parse_D(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<ReplaceMessage, ParseError>
+
 parse_U(
+
     const std::vector<Byte>& bytes
+
 );
+
+
 
 std::variant<StockDirectoryMessage, ParseError>
+
 parse_R(
+
     const std::vector<Byte>& bytes
+
 );
 
+
+
 std::variant<SystemEventMessage, ParseError>
+
 parse_S(
+
     const std::vector<Byte>& bytes
+
 );
+
 ```
 
 ---
@@ -3726,40 +5517,67 @@ parse_S(
 ## 172. Current ITCH Mapper API
 
 ```cpp
+
 ItchMapper(
+
     StockLocate selected_stock_locate
+
 );
+
+
 
 bool is_selected_security(
+
     StockLocate stock_locate
+
 );
 
+
+
 std::variant<
+
     ReplayOperation,
+
     ReplayError
+
 >
+
 map(
+
     const ItchMessage& message
+
 );
+
 ```
 
 Private semantic mapping functions:
 
 ```text
+
 map_add()
+
 map_add_mpid()
+
 map_execute()
+
 map_execute_with_price()
+
 map_cancel()
+
 map_delete()
+
 map_replace()
+
 ```
 
 The mapper also handles:
 
 ```text
+
 selected-security filtering
+
 R/S ignored-message behavior
+
 ```
 
 ---
@@ -3767,26 +5585,43 @@ R/S ignored-message behavior
 ## 173. Current ITCH Replay API
 
 ```cpp
+
 ItchReplay(
+
     OrderBook& order_book
+
 );
 
+
+
 std::variant<
+
     std::monostate,
+
     ReplayError
+
 >
+
 apply(
+
     const ReplayOperation& operation
+
 );
+
 ```
 
 Private replay handlers:
 
 ```text
+
 apply_add()
+
 apply_reduce()
+
 apply_remove()
+
 apply_replace()
+
 ```
 
 ---
@@ -3796,27 +5631,49 @@ apply_replace()
 ## 174. Resting Order Lifecycle
 
 ```text
+
 Order Creation
+
       ↓
+
 Order Added
+
       ↓
+
 Side Determined
+
       ↓
+
 Price Level Located / Created
+
       ↓
+
 Order Stored
+
       ↓
+
 OrderMap Entry Created
+
       ↓
+
 Order Becomes Resting Liquidity
+
       ↓
+
 Cancellation / Matching / Modification
+
       ↓
+
 Quantity Updated / Order Removed / Order Replaced
+
       ↓
+
 OrderMap Updated
+
       ↓
+
 Price Level Removed if Empty
+
 ```
 
 ---
@@ -3824,36 +5681,67 @@ Price Level Removed if Empty
 ## 175. Incoming Executable Order
 
 ```text
+
 Order Creation
+
       ↓
+
 Simulator
+
       ↓
+
 Validate Event
+
       ↓
+
 Capture Side
+
       ↓
+
 Capture Arrival Midpoint
+
       ↓
+
 process_order()
+
       ↓
+
 Check Opposite Side
+
       ↓
+
 Price Crossing
+
       ↓
+
 FIFO Matching
+
       ↓
+
 Trade Generated
+
       ↓
+
 +--------------------------+
+
 |                          |
+
 v                          v
+
 Trade History        InventoryModel
+
                            |
+
                            v
+
                      Position / Cash
+
                            |
+
                            v
+
                       P&L / Exposure
+
 ```
 
 ---
@@ -3861,27 +5749,49 @@ Trade History        InventoryModel
 ## 176. Execution Analysis Lifecycle
 
 ```text
+
 Trade History
+
       ↓
+
 Group Trades by Incoming OrderId
+
       ↓
+
 OrderId
+
    ├── Side Map
+
    └── Reference Price Map
+
       ↓
+
 Calculate Executed Quantity
+
       ↓
+
 Calculate Execution Value
+
       ↓
+
 Calculate VWAP
+
       ↓
+
 Calculate Slippage
+
       ↓
+
 Calculate Execution Cost
+
       ↓
+
 Calculate Liquidity Consumed
+
       ↓
+
 ExecutionResult
+
 ```
 
 ---
@@ -3889,34 +5799,63 @@ ExecutionResult
 ## 177. Inventory Lifecycle
 
 ```text
+
 Generated Trade
+
       +
+
 Incoming Side
+
       ↓
+
 InventoryModel::process_trade()
+
       ↓
+
 Determine Current Position
+
       |
+
       +------------------------------+
+
       |                              |
+
       v                              v
+
 Same Direction                 Opposite Direction
+
       |                              |
+
       v                              v
+
 Increase Position              Close Existing Position
+
       |                              |
+
       v                              v
+
 Weighted Avg Cost          Realized P&L
+
                                      |
+
                          +-----------+-----------+
+
                          |                       |
+
                        Flat                 Crosses Zero
+
                          |                       |
+
                          v                       v
+
                     Avg Cost = 0          Open New Position
+
                                                 |
+
                                                 v
+
                                           New Avg Cost
+
 ```
 
 ---
@@ -3924,21 +5863,37 @@ Weighted Avg Cost          Realized P&L
 ## 178. Modified Order Lifecycle
 
 ```text
+
 Existing Resting Order
+
         ↓
+
      modify()
+
         ↓
+
  ┌───────────────┬────────────────────┐
+
  │               │                    │
+
 Decrease /       Increase or          Quantity
+
 equal quantity   price change         becomes 0
+
  │               │                    │
+
  ↓               ↓                    ↓
+
 Modify in        cancel + add         cancel
+
 place            replacement         order
+
  │               │                    │
+
  ↓               ↓                    ↓
+
 FIFO preserved   FIFO lost            Removed
+
 ```
 
 ---
@@ -3948,43 +5903,77 @@ FIFO preserved   FIFO lost            Removed
 The complete event-driven path is:
 
 ```text
+
 Event
+
   ↓
+
 Simulator
+
   ↓
+
 Validate timestamp / sequence
+
   ↓
+
 Validate event-specific state
+
   ↓
+
 ADD / CANCEL / MODIFY
+
   ↓
+
 OrderBook
+
   ↓
+
 Updated Book
+
   +
+
 Generated Trade(s)
+
 ```
 
 For ADD events:
 
 ```text
+
 Accepted ADD
+
     ↓
+
 Capture incoming side
+
     ↓
+
 Capture arrival midpoint
+
     ↓
+
 process_order()
+
     ↓
+
 Trade(s)
+
     |
+
     +----------------------+
+
     |                      |
+
     v                      v
+
 Execution Analysis   InventoryModel
+
                          |
+
                          v
+
                  Position / Cash / P&L
+
 ```
 
 ---
@@ -3992,27 +5981,49 @@ Execution Analysis   InventoryModel
 ## 180. Metrics Observation Lifecycle
 
 ```text
+
 OrderBook
+
     |
+
     +── Best Bid
+
     +── Best Ask
+
     +── Spread
+
     +── Price Levels
+
     |
+
     v
+
 Metrics Layer
 
+
+
 Trade History
+
     |
+
     +── Trade Count
+
     +── Trade Quantities
+
     |
+
     v
+
 Metrics Layer
+
+
 
             ↓
 
+
+
       MarketMetrics
+
 ```
 
 ---
@@ -4022,17 +6033,29 @@ Metrics Layer
 Inventory valuation uses a supplied mark price.
 
 ```text
+
 OrderBook
+
     ↓
+
 calculate_mid_price()
+
     ↓
+
 Mark Price
+
     ↓
+
 InventoryModel
+
     |
+
     +── Unrealized P&L
+
     +── Portfolio Value
+
     +── Inventory Exposure
+
 ```
 
 The valuation functions do not mutate inventory state.
@@ -4044,79 +6067,133 @@ The valuation functions do not mutate inventory state.
 The complete historical lifecycle is:
 
 ```text
+
 Raw ITCH Message
+
        ↓
+
 Parser
+
        ↓
+
 Decoded ItchMessage
+
        ↓
+
 Selected Security Filter
+
        ↓
+
 Semantic Mapping
+
        ↓
+
 ReplayOperation
+
        ↓
+
 Current Book-State Validation
+
        ↓
+
 ItchReplay
+
        ↓
+
 Existing OrderBook
+
        ↓
+
 Reconstructed Historical State
+
 ```
 
 For an add:
 
 ```text
+
 A/F
+
  ↓
+
 Add
+
  ↓
+
 OrderBook insertion
+
 ```
 
 For an execution:
 
 ```text
+
 E/C
+
  ↓
+
 Reduce
+
  ↓
+
 Quantity subtraction
+
  ↓
+
 Remove if zero
+
 ```
 
 For a cancel:
 
 ```text
+
 X
+
  ↓
+
 Reduce
+
  ↓
+
 Quantity subtraction
+
 ```
 
 For a delete:
 
 ```text
+
 D
+
  ↓
+
 Remove
+
  ↓
+
 OrderBook cancellation
+
 ```
 
 For a replace:
 
 ```text
+
 U
+
  ↓
+
 Replace
+
  ↓
+
 Remove old identity
+
  ↓
+
 Create new identity
+
 ```
 
 ---
@@ -4128,23 +6205,37 @@ Create new identity
 Chapter 1 includes:
 
 ```text
+
 tests/cpp/test_order_book.cpp
+
 ```
 
 The tests verify:
 
 - BUY insertion
+
 - SELL insertion
+
 - multiple orders at the same price
+
 - price-level aggregation
+
 - total quantity
+
 - best bid
+
 - best ask
+
 - spread
+
 - order cancellation
+
 - quantity updates
+
 - empty price-level removal
+
 - empty-book state
+
 - invalid/nonexistent cancellation
 
 ---
@@ -4154,27 +6245,45 @@ The tests verify:
 Chapter 2 includes:
 
 ```text
+
 tests/cpp/test_matching_engine.cpp
+
 ```
 
 The tests verify:
 
 - BUY execution
+
 - SELL execution
+
 - full fills
+
 - partial fills
+
 - multiple resting orders
+
 - FIFO execution
+
 - multiple price levels
+
 - remaining incoming quantity
+
 - remaining resting quantity
+
 - empty price-level removal
+
 - non-crossing BUY orders
+
 - non-crossing SELL orders
+
 - correct incoming order ID
+
 - correct resting order ID
+
 - correct execution price
+
 - correct execution quantity
+
 - correct final book state
 
 ---
@@ -4184,21 +6293,37 @@ The tests verify:
 The order-book integration suite verifies:
 
 - initial `OrderMap` population
+
 - BUY order tracking
+
 - SELL order tracking
+
 - middle-order cancellation
+
 - shifted-index updates
+
 - first-order cancellation
+
 - empty price-level removal
+
 - partial fills preserving `OrderMap`
+
 - full fills removing `OrderMap` entries
+
 - shifted indices after full fills
+
 - multi-level BUY matching
+
 - new orders after deletions
+
 - multi-level SELL matching
+
 - SELL partial fills
+
 - cancellation after matching
+
 - nonexistent cancellation
+
 - final consistency between book and `OrderMap`
 
 ---
@@ -4208,23 +6333,41 @@ The order-book integration suite verifies:
 The modification integration suite verifies:
 
 - direct `find_order()` lookup
+
 - nonexistent lookup
+
 - same-price quantity decrease preserving FIFO
+
 - same-price quantity increase resetting FIFO
+
 - price modification resetting FIFO
+
 - modified quantity
+
 - modified price
+
 - preserved Order ID
+
 - preserved side
+
 - correct `OrderMap` price
+
 - correct `OrderMap` index
+
 - shifted indices after replacement
+
 - old price-level removal
+
 - zero quantity as cancellation
+
 - nonexistent modification returning `false`
+
 - modification after partial fill
+
 - modified orders remaining executable
+
 - removal of fully matched modified orders
+
 - FIFO reset after replacement
 
 ---
@@ -4234,26 +6377,43 @@ The modification integration suite verifies:
 Chapter 5 introduces:
 
 ```text
+
 tests/cpp/test_simulator.cpp
+
 ```
 
 The suite verifies:
 
 - ADD events
+
 - CANCEL events
+
 - MODIFY events
+
 - duplicate ADD rejection
+
 - invalid CANCEL rejection
+
 - invalid MODIFY rejection
+
 - backward timestamp rejection
+
 - same-timestamp sequence ordering
+
 - duplicate sequence rejection
+
 - lower sequence rejection
+
 - new timestamp requiring sequence `0`
+
 - generated trade history
+
 - multiple event processing
+
 - complete event-stream processing
+
 - final simulator timestamp
+
 - final simulator sequence state
 
 ---
@@ -4263,31 +6423,53 @@ The suite verifies:
 Chapter 6 introduces:
 
 ```text
+
 tests/cpp/test_metrics.cpp
+
 ```
 
 The suite verifies:
 
 - best bid
+
 - best ask
+
 - mid-price
+
 - half-tick mid-price
+
 - absolute spread
+
 - relative spread
+
 - bid depth
+
 - ask depth
+
 - order-book imbalance
+
 - empty-book behavior
+
 - zero-depth behavior
+
 - missing bid behavior
+
 - missing ask behavior
+
 - trade count
+
 - trade volume
+
 - empty trade history
+
 - multiple trades
+
 - partial-fill-style histories
+
 - complete `MarketMetrics` calculation
+
 - non-mutation of order-book state
+
 - non-mutation of trade history
 
 ---
@@ -4297,38 +6479,63 @@ The suite verifies:
 Chapter 7 introduces:
 
 ```text
+
 tests/cpp/test_execution.cpp
+
 ```
 
 The suite verifies:
 
 - empty trade history
+
 - single trade
+
 - multiple trades
+
 - multi-level execution
+
 - executed quantity
+
 - execution value
+
 - VWAP
+
 - BUY slippage
+
 - SELL slippage
+
 - zero-execution slippage
+
 - execution cost
+
 - liquidity consumed
+
 - trade grouping
+
 - multiple incoming orders
+
 - different sides
+
 - different arrival references
+
 - per-order execution results
+
 - result lookup by `OrderId`
+
 - orders with no trades being excluded from execution results
 
 The suite protects the separation between:
 
 ```text
+
 trade history
+
 side context
+
 arrival reference
+
 execution calculation
+
 ```
 
 ---
@@ -4338,77 +6545,131 @@ execution calculation
 Chapter 8 introduces:
 
 ```text
+
 tests/cpp/test_inventory_model.cpp
+
 ```
 
 The suite verifies:
 
 - initial state
+
 - single BUY
+
 - multiple BUYs
+
 - weighted-average long cost
+
 - fractional long average cost
+
 - partial long closure
+
 - full long closure with profit
+
 - full long closure with loss
+
 - single SELL opening a short
+
 - multiple SELLs
+
 - weighted-average short cost
+
 - fractional short average cost
+
 - partial short closure
+
 - full short closure with profit
+
 - full short closure with loss
+
 - long → short crossing
+
 - short → long crossing
+
 - adding to a new short after crossing
+
 - adding to a new long after crossing
+
 - cost-basis reset after reaching flat
+
 - zero-quantity trades
+
 - long unrealized P&L
+
 - short unrealized P&L
+
 - long portfolio value
+
 - short portfolio value
+
 - long inventory exposure
+
 - short inventory exposure
+
 - valuation non-mutation
+
 - long accounting identity
+
 - short accounting identity
 
 The tests specifically protect the following accounting invariants:
 
 ```text
+
 BUY decreases cash
+
 SELL increases cash
+
 ```
 
 ```text
+
 Long closure realizes:
 
+
+
 sell price − average cost
+
 ```
 
 ```text
+
 Short closure realizes:
 
+
+
 average cost − buy price
+
 ```
 
 ```text
+
 position == 0
+
     →
+
 avg_cost == 0
+
 ```
 
 ```text
+
 quantity == 0
+
     →
+
 state unchanged
+
 ```
 
 ```text
+
 Portfolio Value
+
 =
+
 Initial Cash + Total P&L
+
 ```
 
 under the current complete-history accounting model.
@@ -4420,7 +6681,9 @@ under the current complete-history accounting model.
 Chapter 9 introduces:
 
 ```text
+
 tests/cpp/test_itch.cpp
+
 ```
 
 The suite verifies the current parser, mapper, and replay architecture.
@@ -4428,98 +6691,159 @@ The suite verifies the current parser, mapper, and replay architecture.
 ### Parser Helpers
 
 ```text
+
 read_bytes
+
 read_be
+
 read_side
+
 ```
 
 ### Message Parsing
 
 ```text
+
 A
+
 F
+
 E
+
 C
+
 X
+
 D
+
 U
+
 R
+
 S
+
 ```
 
 ### Parser Error Handling
 
 ```text
+
 empty message
+
 unknown message type
+
 invalid message lengths
+
 truncated messages
+
 invalid side
+
 ```
 
 ### Mapper
 
 ```text
+
 A → AddOperation
+
 F → AddOperation
+
 E → ReduceOperation
+
 C → ReduceOperation
+
 X → ReduceOperation
+
 D → RemoveOperation
+
 U → ReplaceOperation
+
 selected-security filtering
+
 R → IgnoredMessage
+
 S → IgnoredMessage
+
 ```
 
 ### Replay
 
 ```text
+
 Add
+
 Reduce
+
 Reduce to zero
+
 Unknown order
+
 Invalid reduction quantity
+
 Remove
+
 Replace
+
 Duplicate Add protection
+
 ```
 
 ### End-to-End
 
 ```text
+
 Parser
+
    ↓
+
 ItchMessage
+
    ↓
+
 Mapper
+
    ↓
+
 ReplayOperation
+
    ↓
+
 ItchReplay
+
    ↓
+
 OrderBook
+
 ```
 
 ### Architectural Invariants
 
 ```text
+
 No historical re-matching
+
 Deterministic replay
+
 Existing OrderBook reused
+
 Historical lifecycle validation
+
 ```
 
 The current Chapter 9 test suite passes:
 
 ```text
+
 37 / 37 tests
+
 ```
 
 The current test executable prints:
 
 ```text
+
 All ITCH tests passed.
+
 ```
 
 The suite uses lightweight assertions and a custom test runner consistent with the existing testing style of the project.
@@ -4533,61 +6857,105 @@ The project uses lightweight custom checking rather than a third-party test fram
 Testing emphasizes:
 
 ```text
+
 individual functionality
+
 +
+
 cross-component integration
+
 +
+
 state invariants
+
 +
+
 non-mutation guarantees
+
 +
+
 edge cases
+
 +
+
 lifecycle consistency
+
 ```
 
 The central principle is:
 
 ```text
+
 A function is not considered correct merely because
+
 its normal case works.
+
 ```
 
 The test suites therefore cover state transitions such as:
 
 ```text
+
 insertions
+
 cancellations
+
 vector erasures
+
 partial fills
+
 full fills
+
 multi-level matching
+
 modification
+
 replacement
+
 event rejection
+
 metric calculations
+
 execution aggregation
+
 inventory opening
+
 inventory closing
+
 long/short crossing
+
 cost-basis reset
+
 valuation
+
 ```
 
 Chapter 9 extends this to:
 
 ```text
+
 binary protocol decoding
+
 message-length validation
+
 malformed input
+
 security filtering
+
 historical reductions
+
 historical deletion
+
 historical replacement
+
 duplicate historical identity
+
 historical lifecycle consistency
+
 deterministic reconstruction
+
 no historical re-matching
+
 ```
 
 ---
@@ -4599,7 +6967,9 @@ no historical re-matching
 The simulator executable is:
 
 ```text
+
 cpp/app/simulate_main.cpp
+
 ```
 
 It demonstrates the integrated system across Chapters 1–8 and contains a synthetic Chapter 9 replay demonstration.
@@ -4607,30 +6977,55 @@ It demonstrates the integrated system across Chapters 1–8 and contains a synth
 The demonstration includes:
 
 - order insertion
+
 - order cancellation
+
 - shifted-index behavior
+
 - matching
+
 - order modification
+
 - event-driven simulation
+
 - aggressive BUY execution
+
 - aggressive SELL execution
+
 - market microstructure metrics
+
 - execution VWAP
+
 - execution slippage
+
 - execution cost
+
 - liquidity consumed
+
 - arrival-reference capture
+
 - inventory updates
+
 - cash accounting
+
 - average cost
+
 - realized P&L
+
 - unrealized P&L
+
 - portfolio valuation
+
 - inventory exposure
+
 - synthetic ITCH message parsing
+
 - ITCH semantic mapping
+
 - historical replay
+
 - reconstructed historical best bid / ask / spread
+
 - historical order quantity reduction
 
 ---
@@ -4640,63 +7035,113 @@ The demonstration includes:
 The integrated simulator now follows:
 
 ```text
+
 Event
+
    ↓
+
 Simulator
+
    ↓
+
 Validation
+
    ↓
+
 Capture Execution Context
+
    ↓
+
 OrderBook
+
    ↓
+
 Matching
+
    ↓
+
 Trade(s)
+
    |
+
    +----------------------+----------------------+
+
    |                      |                      |
+
    v                      v                      v
+
 Trade History       Execution Analysis     InventoryModel
+
                           |                      |
+
                           v                      v
+
                    ExecutionResult       Position / Cash
+
                                                |
+
                                   +------------+------------+
+
                                   |            |            |
+
                                   v            v            v
+
                               Realized     Unrealized   Exposure
+
                                 P&L            P&L
+
                                   \            /
+
                                    \          /
+
                                     v        v
+
                                   Portfolio Value
+
 ```
 
 The Chapter 9 historical path is separate:
 
 ```text
+
 ITCH Bytes
+
    ↓
+
 Parser
+
    ↓
+
 ItchMessage
+
    ↓
+
 Mapper
+
    ↓
+
 ReplayOperation
+
    ↓
+
 ItchReplay
+
    ↓
+
 OrderBook
+
    ↓
+
 Historical Book State
+
 ```
 
 The two paths converge at:
 
 ```text
+
 OrderBook
+
 ```
 
 but have intentionally different execution semantics.
@@ -4712,59 +7157,93 @@ This is intentional.
 The historical replay demonstration should not reuse the already-mutated simulation book because that would mix:
 
 ```text
+
 synthetic simulation state
+
 ```
 
 with:
 
 ```text
+
 historical reconstruction state
+
 ```
 
 The demonstration flow is:
 
 ```text
+
 Fresh OrderBook
+
       ↓
+
 Selected Stock Locate
+
       ↓
+
 ItchMapper
+
       ↓
+
 ItchReplay
+
       ↓
+
 Synthetic ITCH A messages
+
       ↓
+
 Synthetic ITCH X message
+
       ↓
+
 Reconstructed Book
+
 ```
 
 The current demonstration validates:
 
 ```text
+
 A
+
     → BUY 100 @ 10050
 
+
+
 A
+
     → SELL 80 @ 10100
 
+
+
 X
+
     → cancel 40 from BUY
+
 ```
 
 The resulting state is:
 
 ```text
+
 BUY 10050 × 60
+
 SELL 10100 × 80
+
 ```
 
 Therefore:
 
 ```text
+
 Best Bid = 10050
+
 Best Ask = 10100
+
 Spread = 50
+
 ```
 
 This demonstrates that historical cancellation changes the resting order quantity directly without invoking the matching engine.
@@ -4778,170 +7257,331 @@ This demonstrates that historical cancellation changes the resting order quantit
 The current implementation includes:
 
 - order representation
+
 - integer price representation
+
 - price levels
+
 - bid and ask sides
+
 - best bid
+
 - best ask
+
 - spread
+
 - order insertion
+
 - order cancellation
+
 - FIFO order storage
+
 - limit-order matching
+
 - BUY execution
+
 - SELL execution
+
 - full fills
+
 - partial fills
+
 - multiple price levels
+
 - trade generation
+
 - remaining order quantity
+
 - empty order and price-level removal
+
 - deterministic order-book behavior
+
 - dedicated tests
+
 - `OrderId` tracking
+
 - `OrderLocation`
+
 - `OrderMap`
+
 - shifted-index synchronization
+
 - OrderMap/book consistency invariant
+
 - direct order resolution
+
 - order quantity modification
+
 - order price modification
+
 - FIFO-preserving quantity decreases
+
 - FIFO-resetting quantity increases
+
 - FIFO-resetting price changes
+
 - order replacement
+
 - Order ID preservation
+
 - side preservation
+
 - zero-quantity modification as cancellation
+
 - modification-related OrderMap synchronization
+
 - event representation
+
 - event types
+
 - event timestamps
+
 - event sequence numbers
+
 - event storage
+
 - event-stream processing
+
 - simulator state
+
 - chronological validation
+
 - sequence-number validation
+
 - duplicate ADD protection
+
 - rejected-event handling
+
 - simulator trade history
+
 - deterministic event processing
+
 - best bid / ask metrics
+
 - mid-price
+
 - half-tick mid-price support
+
 - absolute spread metric
+
 - relative spread metric
+
 - bid depth
+
 - ask depth
+
 - normalized order-book imbalance
+
 - trade count
+
 - total trade volume
+
 - empty-book metric handling
+
 - missing-side metric handling
+
 - read-only metrics calculations
+
 - aggregated `MarketMetrics`
+
 - metrics non-mutation guarantees
+
 - execution value
+
 - executed quantity
+
 - VWAP
+
 - arrival midpoint
+
 - BUY slippage
+
 - SELL slippage
+
 - execution cost
+
 - liquidity consumed
+
 - incoming-order trade grouping
+
 - per-order execution context
+
 - per-order execution results
+
 - execution-result aggregation
+
 - zero-execution handling
+
 - execution-analysis tests
+
 - Simulator integration of execution context
+
 - Simulator execution-result aggregation
+
 - persistent inventory position
+
 - signed long/short inventory
+
 - cash accounting
+
 - weighted-average long cost basis
+
 - weighted-average short cost basis
+
 - realized P&L
+
 - unrealized P&L
+
 - mark-to-market valuation
+
 - portfolio value
+
 - inventory exposure
+
 - long → short crossing
+
 - short → long crossing
+
 - cost-basis reset after flattening
+
 - zero-quantity inventory no-op
+
 - valuation non-mutation
+
 - inventory accounting invariants
+
 - InventoryModel simulator integration
+
 - Nasdaq TotalView-ITCH 5.0 protocol target
+
 - binary ITCH message representation
+
 - decoded ITCH message variant
+
 - A message parsing
+
 - F message parsing
+
 - E message parsing
+
 - C message parsing
+
 - X message parsing
+
 - D message parsing
+
 - U message parsing
+
 - R message parsing
+
 - S message parsing
+
 - big-endian decoding
+
 - integer price decoding
+
 - timestamp decoding
+
 - security filtering
+
 - malformed message handling
+
 - incomplete message handling
+
 - invalid-length handling
+
 - invalid-side handling
+
 - ITCH semantic mapping
+
 - replay error representation
+
 - AddOperation
+
 - ReduceOperation
+
 - RemoveOperation
+
 - ReplaceOperation
+
 - historical add reconstruction
+
 - historical partial cancellation
+
 - historical execution reduction
+
 - historical deletion
+
 - historical replacement
+
 - duplicate historical Add protection
+
 - historical lifecycle validation
+
 - selected-security filtering
+
 - deterministic replay
+
 - no historical re-matching
+
 - existing OrderBook reuse
+
 - synthetic Chapter 9 replay demonstration
+
 - Chapter 9 end-to-end tests
+
 - 37/37 Chapter 9 tests passing
 
 The project intentionally does not yet implement:
 
 - historical NASDAQ ITCH full-file replay
+
 - production-level historical data ingestion
+
 - ITCH P messages
+
 - ITCH Q messages
+
 - ITCH B messages
+
 - complete multi-security reconstruction
+
 - advanced queue-position analytics
+
 - sophisticated market-order execution models
+
 - causal market-impact estimation
+
 - advanced inventory-risk controls
+
 - portfolio-level multi-asset accounting
+
 - derivatives
+
 - margin / leverage
+
 - VaR
+
 - CVaR
+
 - advanced volatility-risk models
+
 - Python bindings
+
 - zero-copy research pipelines
+
 - performance benchmarking at scale
+
 - production-level optimization
+
 - time-series snapshot metrics
+
 - TWAP
+
 - realized volatility
+
 - volatility forecasting
+
 - HAR/GARCH integration
 
 Chapter 9 therefore provides a first protocol-aware historical reconstruction layer without attempting to build a complete production-grade market-data engine.
@@ -4959,71 +7599,137 @@ It is not yet the final high-performance architecture.
 Current characteristics include:
 
 ```text
+
 Price-level search
+
     → linear in number of levels
 
+
+
 Order insertion into level
+
     → vector append
+
+
 
 Order removal
+
     → vector erase + shifted-index updates
 
+
+
 Order ID lookup
+
     → average O(1) through unordered_map
 
+
+
 Direct order resolution
+
     → map lookup + price-level search
 
+
+
 Matching
+
     → traversal of price levels and orders
 
+
+
 FIFO-preserving modification
+
     → in-place mutation
 
+
+
 Priority-changing modification
+
     → cancel + reinsert
 
+
+
 Event storage
+
     → vector append
 
+
+
 Event processing
+
     → sequential event traversal
 
+
+
 Bid / ask depth
+
     → traversal of price levels
 
+
+
 Trade count
+
     → O(1) from vector size
 
+
+
 Trade volume
+
     → linear in trade-history length
 
+
+
 Trade grouping
+
     → average O(n) over trade history
 
+
+
 Execution result calculation
+
     → linear in grouped trade count
 
+
+
 Complete execution analysis
+
     → dominated by trade aggregation and calculation
 
+
+
 Inventory trade processing
+
     → O(1) state update per Trade
 
+
+
 Inventory valuation
+
     → O(1)
 
+
+
 ITCH parsing
+
     → linear in message size
 
+
+
 ITCH message dispatch
+
     → variant dispatch
+
+
 
 ITCH replay operation dispatch
+
     → variant dispatch
 
+
+
 ITCH replay
+
     → dominated by underlying OrderBook state operations
+
 ```
 
 The metrics, execution, inventory, parser, and mapper layers do not introduce mutable caches for premature optimization.
@@ -5039,68 +7745,119 @@ Future optimization decisions will be measured rather than assumed.
 The architecture has progressed from:
 
 ```text
+
 Liquidity Representation
+
         ↓
+
 Liquidity Consumption
+
         ↓
+
 Liquidity Location
+
         ↓
+
 Liquidity Modification
+
         ↓
+
 Event-Driven Processing
+
         ↓
+
 Market-State Measurement
+
         ↓
+
 Execution-Cost Measurement
+
         ↓
+
 Inventory / P&L Accounting
+
         ↓
+
 Historical Market Reconstruction
+
 ```
 
 The system now has two distinct input paths:
 
 ```text
+
 Synthetic Event Path
+
         ↓
+
 Simulator
+
         ↓
+
 OrderBook
+
         ↓
+
 Matching Engine
+
         ↓
+
 Generated Trades
+
 ```
 
 and:
 
 ```text
+
 Historical ITCH Path
+
         ↓
+
 Parser
+
         ↓
+
 ItchMessage
+
         ↓
+
 Mapper
+
         ↓
+
 ReplayOperation
+
         ↓
+
 ItchReplay
+
         ↓
+
 OrderBook
+
         ↓
+
 Historical Book State
+
 ```
 
 Both paths reuse:
 
 ```text
+
 Order
+
 OrderBook
+
 OrderMap
+
 Price
+
 Quantity
+
 Side
+
 ```
 
 where semantics align.
@@ -5108,9 +7865,13 @@ where semantics align.
 The historical path does not force reuse of the synthetic:
 
 ```text
+
 Event
+
 Simulator
+
 Matching Engine
+
 ```
 
 abstraction where it would be semantically incorrect.
@@ -5124,75 +7885,125 @@ abstraction where it would be semantically incorrect.
 Given the same:
 
 ```text
+
 Initial Book State
+
 +
+
 Event Stream
+
 ```
 
 the simulator should produce the same:
 
 ```text
+
 Final Book State
+
 +
+
 Trade History
+
 +
+
 Simulation Time
+
 +
+
 Execution Context
+
 +
+
 Inventory State
+
 ```
 
 and therefore the same:
 
 ```text
+
 MarketMetrics
+
 +
+
 ExecutionResultsByOrder
+
 +
+
 Inventory Valuation
+
 ```
 
 For historical replay, the equivalent principle is:
 
 ```text
+
 Initial Historical Book State
+
 +
+
 Selected Security
+
 +
+
 Same ITCH Message Sequence
+
 ```
 
 must produce:
 
 ```text
+
 Same ItchMessage Sequence
+
 +
+
 Same ReplayOperation Sequence
+
 +
+
 Same Final Historical Book State
+
 ```
 
 The deterministic historical chain is:
 
 ```text
+
 Initial State
+
      +
+
 ITCH Message Sequence
+
      ↓
+
 ITCH Parser
+
      ↓
+
 ItchMessage
+
      ↓
+
 ITCH Mapper
+
      ↓
+
 ReplayOperation
+
      ↓
+
 ItchReplay
+
      ↓
+
 OrderBook
+
      ↓
+
 Historical Book State
+
 ```
 
 This is critical for reproducible quantitative research.
@@ -5204,73 +8015,133 @@ This is critical for reproducible quantitative research.
 ## 200. Current Repository Structure
 
 ```text
+
 hybrid-lob-simulator/
+
 ├── cpp/
+
 │   ├── include/lob/
+
 │   │   ├── types.hpp
+
 │   │   ├── order.hpp
+
 │   │   ├── price_level.hpp
+
 │   │   ├── order_book.hpp
+
 │   │   ├── order_map.hpp
+
 │   │   ├── trade.hpp
+
 │   │   ├── event.hpp
+
 │   │   ├── simulator.hpp
+
 │   │   ├── metrics.hpp
+
 │   │   ├── execution.hpp
+
 │   │   ├── inventory_model.hpp
+
 │   │   ├── itch_message.hpp
+
 │   │   ├── itch_parser.hpp
+
 │   │   ├── itch_mapper.hpp
+
 │   │   └── itch_replay.hpp
+
 │   │
+
 │   ├── src/
+
 │   │   ├── order_book.cpp
+
 │   │   ├── order_map.cpp
+
 │   │   ├── simulator.cpp
+
 │   │   ├── metrics.cpp
+
 │   │   ├── execution.cpp
+
 │   │   ├── inventory_model.cpp
+
 │   │   ├── itch_parser.cpp
+
 │   │   ├── itch_mapper.cpp
+
 │   │   └── itch_replay.cpp
+
 │   │
+
 │   └── app/
+
 │       ├── simulate_main.cpp
+
 │       └── replay_itch_main.cpp
+
 │
+
 ├── tests/
+
 │   └── cpp/
+
 │       ├── test_order_book.cpp
+
 │       ├── test_matching_engine.cpp
+
 │       ├── test_simulator.cpp
+
 │       ├── test_metrics.cpp
+
 │       ├── test_execution.cpp
+
 │       ├── test_inventory_model.cpp
+
 │       └── test_itch.cpp
+
 │
+
 └── docs/
+
     └── ARCHITECTURE.md
+
 ```
 
 The Chapter 9 files are:
 
 ```text
+
 cpp/include/lob/itch_message.hpp
+
 cpp/include/lob/itch_parser.hpp
+
 cpp/include/lob/itch_mapper.hpp
+
 cpp/include/lob/itch_replay.hpp
 
+
+
 cpp/src/itch_parser.cpp
+
 cpp/src/itch_mapper.cpp
+
 cpp/src/itch_replay.cpp
 
+
+
 tests/cpp/test_itch.cpp
+
 ```
 
 The dedicated real-data executable:
 
 ```text
+
 cpp/app/replay_itch_main.cpp
+
 ```
 
 remains planned rather than fully implemented for the current synthetic demonstration stage.
@@ -5286,43 +8157,81 @@ The current architecture deliberately uses straightforward containers and explic
 The objective is:
 
 ```text
+
 Correct Order Book
 
+
+
       +
+
+
 
 Correct Matching
 
+
+
       +
+
+
 
 Correct Order Tracking
 
+
+
       +
+
+
 
 Correct Modification Semantics
 
+
+
       +
+
+
 
 Correct Event Processing
 
+
+
       +
+
+
 
 Correct Market Metrics
 
+
+
       +
+
+
 
 Correct Execution Analysis
 
+
+
       +
+
+
 
 Correct Inventory Accounting
 
+
+
       +
+
+
 
 Correct Historical Replay
 
+
+
       =
 
+
+
 Reliable Simulation / Reconstruction Core
+
 ```
 
 ---
@@ -5332,48 +8241,75 @@ Reliable Simulation / Reconstruction Core
 The system maintains explicit ownership boundaries:
 
 ```text
+
 OrderBook
+
     → market-state source of truth
+
 ```
 
 ```text
+
 Simulator
+
     → event stream and trade-history source of truth
+
 ```
 
 ```text
+
 Execution Context
+
     → per-order execution metadata
+
 ```
 
 ```text
+
 InventoryModel
+
     → persistent accounting state
+
 ```
 
 ```text
+
 Metrics
+
     → derived market observations
+
 ```
 
 ```text
+
 Execution Analysis
+
     → derived execution observations
+
 ```
 
 ```text
+
 ITCH Parser
+
     → decoded protocol representation
+
 ```
 
 ```text
+
 ITCH Mapper
+
     → semantic replay representation
+
 ```
 
 ```text
+
 ItchReplay
+
     → historical state mutation
+
 ```
 
 No analytical or replay module maintains a second copy of the order book.
@@ -5387,81 +8323,121 @@ The principal invariants established so far are:
 ### OrderMap invariant
 
 ```text
+
 Every resting order
+
     ↔
+
 Exactly one OrderMap entry
+
 ```
 
 ### FIFO invariant
 
 ```text
+
 Orders at the same price
+
     →
+
 Stored and matched in queue order
+
 ```
 
 ### Event invariant
 
 ```text
+
 Accepted events
+
     →
+
 Follow timestamp / sequence ordering
+
 ```
 
 ### Metrics invariant
 
 ```text
+
 Metric calculations
+
     →
+
 Do not mutate source state
+
 ```
 
 ### Execution-reference invariant
 
 ```text
+
 Arrival reference
+
     →
+
 Captured before matching
+
 ```
 
 ### Execution grouping invariant
 
 ```text
+
 Each generated Trade
+
     →
+
 Belongs to exactly one incoming OrderId group
+
 ```
 
 ### Execution-result invariant
 
 ```text
+
 Each incoming OrderId with generated trades
+
     →
+
 Produces exactly one ExecutionResult
+
 ```
 
 ### Inventory state invariant
 
 ```text
+
 position == 0
+
     →
+
 avg_cost == 0
+
 ```
 
 ### Zero-quantity invariant
 
 ```text
+
 trade.quantity == 0
+
     →
+
 Inventory state unchanged
+
 ```
 
 ### Portfolio accounting invariant
 
 ```text
+
 Portfolio Value
+
 =
+
 Initial Cash + Total P&L
+
 ```
 
 under the current complete-history model.
@@ -5469,81 +8445,121 @@ under the current complete-history model.
 ### Protocol separation invariant
 
 ```text
+
 ItchMessage
+
     ≠
+
 Event
+
 ```
 
 ### Historical order identity invariant
 
 ```text
+
 Active ITCH Order Reference
+
     ↔
+
 Exactly one active reconstructed Order
+
 ```
 
 ### Historical reduction invariant
 
 ```text
+
 Reduction quantity
+
     ≤
+
 Current resting quantity
+
 ```
 
 ### Historical replay invariant
 
 ```text
+
 ITCH E/C
+
     →
+
 Reduce historical state
+
 ```
 
 not:
 
 ```text
+
 ITCH E/C
+
     →
+
 re-match through matching engine
+
 ```
 
 ### Feed-order invariant
 
 ```text
+
 Replay
+
     →
+
 Preserves supplied feed order
+
 ```
 
 ### Security-scope invariant
 
 ```text
+
 Current replay
+
     →
+
 Only selected Stock Locate
+
 ```
 
 ### Parser purity invariant
 
 ```text
+
 Parser
+
     →
+
 Does not mutate market state
+
 ```
 
 ### Mapper purity invariant
 
 ```text
+
 Mapper
+
     →
+
 Does not mutate market state
+
 ```
 
 ### Replay ownership invariant
 
 ```text
+
 ItchReplay
+
     →
+
 Uses existing OrderBook
+
 ```
 
 ---
@@ -5553,27 +8569,49 @@ Uses existing OrderBook
 Future changes should follow:
 
 ```text
+
 Measure
 
+
+
    ↓
+
+
 
 Profile
 
+
+
    ↓
+
+
 
 Find bottleneck
 
+
+
    ↓
+
+
 
 Change implementation
 
+
+
    ↓
+
+
 
 Benchmark
 
+
+
    ↓
 
+
+
 Verify correctness
+
 ```
 
 No major container redesign should be introduced merely because a theoretical complexity improvement appears attractive.
@@ -5589,76 +8627,143 @@ The current vector-based design remains the established architecture unless late
 The longer-term architecture is:
 
 ```text
+
 Market Data
+
      |
+
      +-----------------------------+
+
      |                             |
+
      v                             v
+
 Synthetic Events              Historical ITCH
+
      |                             |
+
      v                             v
+
  Simulator                    ITCH Parser
+
      |                             |
+
      v                             v
+
  OrderBook                     ItchMessage
+
      |                             |
+
  Matching Engine              ITCH Mapper
+
      |                             |
+
      v                             v
+
    Trades                     ReplayOperation
+
      |                             |
+
      +--------------+--------------+
+
                     |
+
                     v
+
              Market State
+
                     |
+
            +--------+--------+
+
            |        |        |
+
            v        v        v
+
         Metrics  Execution Inventory
+
                     Analysis  / P&L
+
            |          |         |
+
            v          v         v
+
       MarketMetrics Execution  Portfolio
+
                     Result      State
+
            \          |         /
+
             \         |        /
+
              +--------+-------+
+
                       |
+
                       v
+
                Research Dataset
+
                       |
+
                       v
+
                Python Research
+
 ```
 
 Eventually:
 
 ```text
+
 Historical / Synthetic Market Data
+
               ↓
+
      Event / Replay Pipeline
+
               ↓
+
            OrderBook
+
               ↓
+
        Market State
+
               ↓
+
        +------+------+------+
+
        |             |      |
+
        v             v      v
+
   Market Metrics Execution Inventory
+
                      Analysis  / P&L
+
        |             |      |
+
        +-------------+------+
+
                      |
+
                      v
+
               Research Dataset
+
                      |
+
                      v
+
                Python Research
+
                      |
+
                      v
+
              Quantitative Research
+
 ```
 
 The same `OrderBook` remains the central market-state representation.
@@ -5670,26 +8775,39 @@ The same `OrderBook` remains the central market-state representation.
 ## 206. Protocol Layer
 
 ```text
+
 Raw ITCH bytes
+
         ↓
+
 ITCH parser
+
         ↓
+
 Concrete decoded message
+
 ```
 
 Responsibility:
 
 ```text
+
 Understand binary protocol structure.
+
 ```
 
 The protocol layer does not understand:
 
 ```text
+
 matching strategy
+
 inventory
+
 execution quality
+
 portfolio accounting
+
 ```
 
 ---
@@ -5697,29 +8815,45 @@ portfolio accounting
 ## 207. Semantic Layer
 
 ```text
+
 ItchMessage
+
       ↓
+
 ITCH Mapper
+
       ↓
+
 ReplayOperation
+
 ```
 
 Responsibility:
 
 ```text
+
 Interpret what the message means for displayed-book reconstruction.
+
 ```
 
 Examples:
 
 ```text
+
 A → Add
+
 F → Add
+
 E → Reduce
+
 C → Reduce
+
 X → Reduce
+
 D → Remove
+
 U → Replace
+
 ```
 
 ---
@@ -5727,18 +8861,27 @@ U → Replace
 ## 208. State Mutation Layer
 
 ```text
+
 ReplayOperation
+
       ↓
+
 ItchReplay
+
       ↓
+
 OrderBook
+
 ```
 
 Responsibility:
 
 ```text
+
 Apply valid historical state transitions
+
 to the current reconstructed book.
+
 ```
 
 The replay layer is deliberately thin.
@@ -5746,12 +8889,19 @@ The replay layer is deliberately thin.
 It does not redefine:
 
 ```text
+
 OrderMap
+
 PriceLevel
+
 vector ownership
+
 best bid
+
 best ask
+
 spread
+
 ```
 
 Those remain `OrderBook` responsibilities.
@@ -5763,15 +8913,21 @@ Those remain `OrderBook` responsibilities.
 Synthetic simulation answers:
 
 ```text
+
 What happens when an incoming order
+
 is submitted to our matching engine?
+
 ```
 
 Historical reconstruction answers:
 
 ```text
+
 What displayed order-book state was reported
+
 by the exchange feed at each message transition?
+
 ```
 
 These questions require different mutation semantics.
@@ -5779,15 +8935,21 @@ These questions require different mutation semantics.
 Therefore:
 
 ```text
+
 Simulation
+
     → process incoming orders
+
 ```
 
 while:
 
 ```text
+
 Historical replay
+
     → apply exchange-reported state transitions
+
 ```
 
 This separation is one of the central architectural additions of Chapter 9.
@@ -5799,81 +8961,149 @@ This separation is one of the central architectural additions of Chapter 9.
 ## 210. Complete Architecture After Chapter 9
 
 ```text
+
                          MARKET INPUTS
+
                               |
+
                 +-------------+-------------+
+
                 |                           |
+
                 v                           v
+
         Synthetic Events             Historical ITCH
+
                 |                           |
+
                 v                           v
+
             Simulator                 ITCH Parser
+
                 |                           |
+
                 |                      ItchMessage
+
                 |                           |
+
                 |                      ITCH Mapper
+
                 |                           |
+
                 |                     ReplayOperation
+
                 |                           |
+
                 |                       ItchReplay
+
                 |                           |
+
                 +-------------+-------------+
+
                               |
+
                               v
+
                            OrderBook
+
                        +------+------+
+
                        |             |
+
                        v             v
+
                    OrderMap      Matching Engine
+
                                      |
+
                                      v
+
                                     Trade
+
                                      |
+
                        +-------------+-------------+
+
                        |             |             |
+
                        v             v             v
+
                     Metrics     Execution      Inventory
+
                                   Analysis        Model
+
                        |             |             |
+
                        v             v             v
+
                  MarketMetrics ExecutionResult P&L / Risk
+
                                                     |
+
                                                     v
+
                                                Portfolio
+
 ```
 
 The synthetic path is:
 
 ```text
+
 Event
+
  ↓
+
 Simulator
+
  ↓
+
 OrderBook
+
  ↓
+
 Matching
+
  ↓
+
 Generated Trade
+
 ```
 
 The historical path is:
 
 ```text
+
 ITCH
+
  ↓
+
 Parser
+
  ↓
+
 ItchMessage
+
  ↓
+
 Mapper
+
  ↓
+
 ReplayOperation
+
  ↓
+
 ItchReplay
+
  ↓
+
 OrderBook
+
  ↓
+
 Historical Book State
+
 ```
 
 The project therefore has two distinct ways of evolving the same market-state representation.
@@ -5883,93 +9113,155 @@ The project therefore has two distinct ways of evolving the same market-state re
 ## 211. Complete Architecture Responsibility Split
 
 ```text
+
 Order
 
+
+
     Represents individual order state
+
 ```
 
 ```text
+
 PriceLevel
 
+
+
     Groups orders at the same price
+
 ```
 
 ```text
+
 OrderBook
 
+
+
     Owns market state
+
     Performs matching
+
     Performs order-state mutation
+
 ```
 
 ```text
+
 OrderMap
 
+
+
     Provides OrderId → location lookup
+
 ```
 
 ```text
+
 Matching Engine
 
+
+
     Determines executions for synthetic incoming orders
+
 ```
 
 ```text
+
 Trade
 
+
+
     Represents generated execution results
+
 ```
 
 ```text
+
 Event
 
+
+
     Represents one synthetic timestamped market action
+
 ```
 
 ```text
+
 Simulator
 
+
+
     Processes synthetic events
+
     Validates timestamps / sequences
+
     Captures execution context
+
     Stores generated trades
+
     Coordinates inventory updates
+
 ```
 
 ```text
+
 Metrics
 
+
+
     Derives market-state statistics
+
 ```
 
 ```text
+
 Execution Analysis
 
+
+
     Derives execution-quality statistics
+
 ```
 
 ```text
+
 InventoryModel
 
+
+
     Maintains persistent inventory/accounting state
+
 ```
 
 ```text
+
 ITCH Parser
 
+
+
     Decodes external binary market-data messages
+
 ```
 
 ```text
+
 ITCH Mapper
 
+
+
     Converts protocol semantics into replay operations
+
 ```
 
 ```text
+
 ItchReplay
 
+
+
     Applies historical state transitions to the existing OrderBook
+
 ```
 
 ---
@@ -5979,158 +9271,275 @@ ItchReplay
 ## Chapter 1 — Represent Liquidity
 
 ```text
+
 Individual Order
+
         ↓
+
 Price Level
+
         ↓
+
 Order Book
+
 ```
 
 ## Chapter 2 — Consume Liquidity
 
 ```text
+
 Incoming Order
+
         ↓
+
 Matching Engine
+
         ↓
+
 Trade(s)
+
         ↓
+
 Updated Book
+
 ```
 
 ## Chapter 3 — Locate Liquidity
 
 ```text
+
 OrderId
+
    ↓
+
 OrderMap
+
    ↓
+
 OrderLocation
+
    ↓
+
 Actual Order
+
 ```
 
 ## Chapter 4 — Modify Liquidity
 
 ```text
+
 OrderId
+
    ↓
+
 find_order()
+
    ↓
+
 modify()
+
    ↓
+
 Preserve FIFO
+
+
 
 OR
 
+
+
 Cancel + Replace
+
    ↓
+
 Updated Book + OrderMap
+
 ```
 
 ## Chapter 5 — Drive Liquidity Through Events
 
 ```text
+
 Event
+
    ↓
+
 Simulator
+
    ↓
+
 Timestamp / Sequence Validation
+
    ↓
+
 OrderBook
+
    ↓
+
 ADD / CANCEL / MODIFY
+
    ↓
+
 Trade(s) / Updated Book
+
 ```
 
 ## Chapter 6 — Measure Market State
 
 ```text
+
 OrderBook + Trade History
+
             ↓
+
       Metrics Functions
+
             ↓
+
       MarketMetrics
+
 ```
 
 ## Chapter 7 — Measure Execution Quality
 
 ```text
+
 Trade History
+
 +
+
 Side Context
+
 +
+
 Arrival Midpoint
+
         ↓
+
 Execution Analysis
+
         ↓
+
 VWAP
+
 Slippage
+
 Execution Cost
+
 Liquidity Consumed
+
         ↓
+
 ExecutionResult
+
 ```
 
 ## Chapter 8 — Maintain Inventory / P&L State
 
 ```text
+
 Trade
+
 +
+
 Incoming Side
+
         ↓
+
 InventoryModel
+
         ↓
+
 Position
+
 +
+
 Cash
+
 +
+
 Average Cost
+
 +
+
 Realized P&L
+
         ↓
+
 Mark Price
+
         ↓
+
 Unrealized P&L
+
 +
+
 Portfolio Value
+
 +
+
 Inventory Exposure
+
 ```
 
 ## Chapter 9 — Reconstruct Historical Market State
 
 ```text
+
 Historical ITCH Bytes
+
         ↓
+
 ITCH Parser
+
         ↓
+
 ItchMessage
+
         ↓
+
 ITCH Mapper
+
         ↓
+
 ReplayOperation
+
         ↓
+
 ItchReplay
+
         ↓
+
 Existing OrderBook
+
         ↓
+
 Historical Book State
+
 ```
 
 The nine chapters therefore establish:
 
 ```text
+
 Chapter 1 → Represent Liquidity
+
 Chapter 2 → Consume Liquidity
+
 Chapter 3 → Locate Liquidity
+
 Chapter 4 → Modify Liquidity
+
 Chapter 5 → Drive Liquidity Through Events
+
 Chapter 6 → Measure Market State
+
 Chapter 7 → Measure Execution Quality
+
 Chapter 8 → Maintain Inventory / P&L State
+
 Chapter 9 → Reconstruct Historical Market State
+
 ```
 
 ---
@@ -6142,96 +9551,163 @@ Chapter 9 → Reconstruct Historical Market State
 The primary synthetic path is:
 
 ```text
+
 Event Stream
+
      ↓
+
 Simulator
+
      ↓
+
 OrderBook
+
      ↓
+
 Matching / Cancellation / Modification
+
      ↓
+
 Book State
+
      +
+
 Trade History
+
 ```
 
 From generated trades, the system branches into independent downstream functions:
 
 ```text
+
 Trade History
+
      |
+
      +---------------------+----------------------+
+
      |                     |                      |
+
      v                     v                      v
+
 Trade Metrics       Execution Analysis      InventoryModel
+
      |                     |                      |
+
      v                     v                      v
+
 Trade Statistics    ExecutionResult      Position / P&L
+
                                                 |
+
                                                 v
+
                                         Mark-to-Market
+
 ```
 
 The historical path is:
 
 ```text
+
 ITCH Feed
+
      ↓
+
 Parser
+
      ↓
+
 ItchMessage
+
      ↓
+
 Mapper
+
      ↓
+
 ReplayOperation
+
      ↓
+
 ItchReplay
+
      ↓
+
 OrderBook
+
 ```
 
 This creates a clean distinction:
 
 ```text
+
 What was submitted to our simulator?
 
+
+
     Event
+
 ```
 
 ```text
+
 What did our simulator do?
 
+
+
     Simulator + OrderBook
+
 ```
 
 ```text
+
 What happened in the historical exchange feed?
 
+
+
     ITCH Message
+
 ```
 
 ```text
+
 What historical book mutation does that imply?
 
+
+
     ReplayOperation
+
 ```
 
 ```text
+
 What does the reconstructed market look like?
 
+
+
     OrderBook + Metrics
+
 ```
 
 ```text
+
 What did simulated execution cost?
 
+
+
     Execution Analysis
+
 ```
 
 ```text
+
 What inventory/accounting state resulted?
 
+
+
     InventoryModel
+
 ```
 
 ---
@@ -6243,19 +9719,29 @@ What inventory/accounting state resulted?
 The order book remains the source of truth for:
 
 ```text
+
 best prices
+
 price levels
+
 orders
+
 resting quantities
+
 book liquidity
+
 ```
 
 Trade history remains the source of truth for:
 
 ```text
+
 executions
+
 trade quantities
+
 trade count
+
 ```
 
 Metrics are derived from these sources.
@@ -6269,15 +9755,21 @@ Historical replay state also uses the same order book as the source of truth aft
 The Chapter 6 architecture intentionally uses:
 
 ```cpp
+
 const OrderBook&
+
 const std::vector<Trade>&
+
 ```
 
 to reinforce:
 
 ```text
+
 Metrics observe.
+
 Metrics do not mutate.
+
 ```
 
 ---
@@ -6287,7 +9779,9 @@ Metrics do not mutate.
 The project keeps:
 
 ```text
+
 Price
+
 ```
 
 as integer ticks.
@@ -6295,19 +9789,29 @@ as integer ticks.
 Derived fractional values use:
 
 ```text
+
 double
+
 ```
 
 Examples:
 
 ```text
+
 MidPrice
+
 Vwap
+
 RelativeSpread
+
 Imbalance
+
 Slippage
+
 AvgCost
+
 P&L
+
 ```
 
 ITCH price decoding preserves integer protocol values until they are explicitly mapped into the internal `Price` representation.
@@ -6319,13 +9823,17 @@ ITCH price decoding preserves integer protocol values until they are explicitly 
 The unavailable-quote convention remains:
 
 ```text
+
 0
+
 ```
 
 The project does not currently migrate quote APIs to:
 
 ```cpp
+
 std::optional<Price>
+
 ```
 
 ---
@@ -6339,7 +9847,9 @@ The execution layer does not create executions.
 The matching engine generates:
 
 ```cpp
+
 Trade
+
 ```
 
 Execution analysis consumes those results.
@@ -6355,13 +9865,21 @@ Execution quality is measured relative to the market visible at arrival.
 Therefore:
 
 ```text
+
 Arrival Midpoint
+
       ↓
+
 Capture
+
       ↓
+
 Matching
+
       ↓
+
 Book Changes
+
 ```
 
 Historical replay does not apply this concept to `E`, `C`, or `X` because those messages are reconstructing historical market state rather than measuring execution quality for a newly submitted simulator order.
@@ -6373,7 +9891,9 @@ Historical replay does not apply this concept to `E`, `C`, or `X` because those 
 Only one midpoint calculation exists:
 
 ```cpp
+
 calculate_mid_price()
+
 ```
 
 The Metrics layer defines the calculation.
@@ -6393,10 +9913,15 @@ Historical replay does not introduce a second midpoint implementation.
 `Trade` remains:
 
 ```text
+
 incoming_order
+
 resting_order
+
 price
+
 quantity
+
 ```
 
 Side is supplied externally.
@@ -6406,13 +9931,17 @@ This prevents unnecessary duplication in the trade structure.
 The same semantic separation is maintained between:
 
 ```text
+
 ItchMessage
+
 ```
 
 and:
 
 ```text
+
 ReplayOperation
+
 ```
 
 ---
@@ -6426,18 +9955,27 @@ Unlike metrics and execution analysis, inventory accounting maintains state acro
 The persistent accounting state is:
 
 ```text
+
 position
+
 cash
+
 avg_cost
+
 realized_pnl
+
 ```
 
 Derived values are:
 
 ```text
+
 unrealized_pnl
+
 portfolio_value
+
 inventory_exposure
+
 ```
 
 ---
@@ -6447,28 +9985,43 @@ inventory_exposure
 The matching engine does not know about:
 
 ```text
+
 cash
+
 cost basis
+
 P&L
+
 exposure
+
 ```
 
 The architectural direction is:
 
 ```text
+
 Matching Engine
+
       ↓
+
 Trade
+
       ↓
+
 InventoryModel
+
 ```
 
 not:
 
 ```text
+
 Matching Engine
+
       ↔
+
 InventoryModel
+
 ```
 
 This preserves separation of concerns.
@@ -6496,7 +10049,9 @@ The inventory model does not maintain another market-price calculation.
 The existing:
 
 ```cpp
+
 calculate_mid_price()
+
 ```
 
 remains the source of the current midpoint mark.
@@ -6504,11 +10059,17 @@ remains the source of the current midpoint mark.
 This produces:
 
 ```text
+
 Single midpoint definition
+
         ↓
+
 Metrics
+
 Execution Reference
+
 Inventory Mark
+
 ```
 
 ---
@@ -6520,21 +10081,29 @@ Realized P&L changes only when existing inventory is closed.
 Opening:
 
 ```text
+
 No realized P&L
+
 ```
 
 Closing:
 
 ```text
+
 Realized P&L changes
+
 ```
 
 Crossing zero:
 
 ```text
+
 Close existing inventory
+
 +
+
 Open new opposite inventory
+
 ```
 
 ---
@@ -6546,9 +10115,13 @@ Unrealized P&L is never stored.
 It is always recalculated from:
 
 ```text
+
 position
+
 avg_cost
+
 mark_price
+
 ```
 
 Therefore changes in the mark price do not mutate inventory state.
@@ -6560,20 +10133,31 @@ Therefore changes in the mark price do not mutate inventory state.
 The following calculations are observational:
 
 ```cpp
+
 unrealized_pnl(mark_price);
+
+
 
 portfolio_value(mark_price);
 
+
+
 inventory_exposure(mark_price);
+
 ```
 
 They do not change:
 
 ```text
+
 position
+
 cash
+
 avg_cost
+
 realized_pnl
+
 ```
 
 ---
@@ -6585,27 +10169,45 @@ realized_pnl
 The following are protocol objects:
 
 ```text
+
 AddOrderMessage
+
 AddOrderMPIDMessage
+
 ExecuteMessage
+
 ExecuteWithPriceMessage
+
 CancelMessage
+
 DeleteMessage
+
 ReplaceMessage
+
 StockDirectoryMessage
+
 SystemEventMessage
+
 ```
 
 The following are engine/replay objects:
 
 ```text
+
 Order
+
 Trade
+
 Event
+
 AddOperation
+
 ReduceOperation
+
 RemoveOperation
+
 ReplaceOperation
+
 ```
 
 The two layers are deliberately separate.
@@ -6617,22 +10219,35 @@ The two layers are deliberately separate.
 The parser knows:
 
 ```text
+
 message type
+
 field offsets
+
 field lengths
+
 big-endian encoding
+
 protocol values
+
 binary structure
+
 ```
 
 The parser does not know:
 
 ```text
+
 FIFO policy
+
 OrderBook mutation
+
 inventory
+
 execution analysis
+
 portfolio state
+
 ```
 
 ---
@@ -6642,25 +10257,41 @@ portfolio state
 The mapper knows:
 
 ```text
+
 what A means for replay
+
 what F means for replay
+
 what E means for replay
+
 what C means for replay
+
 what X means for replay
+
 what D means for replay
+
 what U means for replay
+
 what R/S mean for the current scope
+
 which security is selected
+
 ```
 
 The mapper does not know:
 
 ```text
+
 actual vector positions
+
 price-level storage
+
 OrderMap implementation
+
 matching
+
 inventory
+
 ```
 
 ---
@@ -6670,17 +10301,25 @@ inventory
 The replay layer knows:
 
 ```text
+
 current reconstructed order state
+
 valid historical lifecycle
+
 how a Reduce changes quantity
+
 how a Remove removes an order
+
 how a Replace changes identity
+
 ```
 
 It delegates low-level state mechanics to:
 
 ```text
+
 OrderBook
+
 ```
 
 ---
@@ -6690,7 +10329,9 @@ OrderBook
 The historical replay layer intentionally calls the existing:
 
 ```cpp
+
 OrderBook
+
 ```
 
 rather than creating a second specialized book.
@@ -6698,15 +10339,21 @@ rather than creating a second specialized book.
 The architecture is therefore:
 
 ```text
+
 Two input semantics
+
         ↓
+
 One central market-state representation
+
 ```
 
 rather than:
 
 ```text
+
 Two independent order books
+
 ```
 
 This keeps the project smaller, easier to test, and easier to reason about.
@@ -6718,25 +10365,41 @@ This keeps the project smaller, easier to test, and easier to reason about.
 The initial replay scope is intentionally limited to:
 
 ```text
+
 one selected security
+
 one trading day
+
 displayed book
+
 supported message types
+
 deterministic processing
+
 ```
 
 The project does not yet introduce:
 
 ```text
+
 MultiAssetOrderBook
+
 ExchangeBase
+
 FeedHandlerManager
+
 MarketDataEngine
+
 strategy engine
+
 network infrastructure
+
 threading
+
 memory pools
+
 Python binding layer
+
 ```
 
 Those would be premature architectural additions.
@@ -6750,27 +10413,41 @@ Those would be premature architectural additions.
 The parser tests currently verify:
 
 ```text
+
 A
+
 F
+
 E
+
 C
+
 X
+
 D
+
 U
+
 R
+
 S
+
 ```
 
 Each test checks that:
 
 ```text
+
 get_type_parser()
+
 ```
 
 returns:
 
 ```text
+
 std::variant<ItchMessage, ParseError>
+
 ```
 
 containing the correct nested concrete message type.
@@ -6778,11 +10455,17 @@ containing the correct nested concrete message type.
 The test structure is:
 
 ```text
+
 outer variant
+
     ↓
+
 ItchMessage
+
     ↓
+
 concrete protocol message
+
 ```
 
 This nested representation is intentional.
@@ -6794,12 +10477,19 @@ This nested representation is intentional.
 The suite tests:
 
 ```text
+
 empty input
+
 unknown type
+
 short message
+
 invalid length
+
 invalid side
+
 truncated input
+
 ```
 
 The parser must fail safely rather than accessing unavailable bytes.
@@ -6811,20 +10501,31 @@ The parser must fail safely rather than accessing unavailable bytes.
 The mapper tests verify:
 
 ```text
+
 A → AddOperation
+
 F → AddOperation
+
 E → ReduceOperation
+
 C → ReduceOperation
+
 X → ReduceOperation
+
 D → RemoveOperation
+
 U → ReplaceOperation
+
 ```
 
 and:
 
 ```text
+
 R → IgnoredMessage
+
 S → IgnoredMessage
+
 ```
 
 Security filtering is also tested.
@@ -6836,14 +10537,23 @@ Security filtering is also tested.
 The replay tests verify:
 
 ```text
+
 Add
+
 Reduce
+
 Reduce to zero
+
 Unknown order
+
 Invalid quantity
+
 Remove
+
 Replace
+
 Duplicate Add
+
 ```
 
 The duplicate Add test is important because the replay layer must enforce historical order-identity consistency.
@@ -6855,19 +10565,33 @@ The duplicate Add test is important because the replay layer must enforce histor
 The end-to-end test validates:
 
 ```text
+
 raw ITCH
+
    ↓
+
 parser
+
    ↓
+
 ItchMessage
+
    ↓
+
 mapper
+
    ↓
+
 ReplayOperation
+
    ↓
+
 ItchReplay
+
    ↓
+
 OrderBook
+
 ```
 
 The resulting book state is checked.
@@ -6879,19 +10603,29 @@ The resulting book state is checked.
 The no-re-matching test verifies:
 
 ```text
+
 historical resting order
+
         ↓
+
 historical execution reduction
+
         ↓
+
 remaining order quantity
+
 ```
 
 without creating:
 
 ```text
+
 incoming order
+
 Trade
+
 matching event
+
 ```
 
 This test directly protects one of the main Chapter 9 architectural invariants.
@@ -6915,17 +10649,25 @@ This demonstrates that the replay operations themselves are deterministic.
 The simulator continues to demonstrate:
 
 ```text
+
 Chapters 1–8
+
 ```
 
 using the established:
 
 ```text
+
 OrderBook
+
 Simulator
+
 Metrics
+
 Execution
+
 Inventory
+
 ```
 
 architecture.
@@ -6939,48 +10681,79 @@ Chapter 9 is added as an isolated replay demonstration using a fresh book.
 The Chapter 9 section of `simulate_main.cpp` demonstrates:
 
 ```text
+
 Synthetic ITCH A
+
       ↓
+
 Parse
+
       ↓
+
 Map
+
       ↓
+
 Replay
+
 ```
 
 followed by:
 
 ```text
+
 Synthetic ITCH A
+
       ↓
+
 Parse
+
       ↓
+
 Map
+
       ↓
+
 Replay
+
 ```
 
 and then:
 
 ```text
+
 Synthetic ITCH X
+
       ↓
+
 Parse
+
       ↓
+
 Map
+
       ↓
+
 Reduce
+
       ↓
+
 Replay
+
 ```
 
 The resulting reconstructed book verifies:
 
 ```text
+
 Best Bid
+
 Best Ask
+
 Spread
+
 Remaining Quantity
+
 ```
 
 The demo proves that the parser, mapper, replay layer, and existing `OrderBook` communicate correctly.
@@ -6996,41 +10769,77 @@ It is not yet the final historical-feed executable.
 The development sequence is:
 
 ```text
+
 Chapter 1
+
 Basic Limit Order Book
+
         ↓
+
 Chapter 2
+
 Matching & Execution Engine
+
         ↓
+
 Chapter 3
+
 Individual Order Tracking
+
         ↓
+
 Chapter 4
+
 Order Modification / Replace
+
         ↓
+
 Chapter 5
+
 Event-Driven Market Simulation
+
         ↓
+
 Chapter 6
+
 Market Microstructure Metrics
+
         ↓
+
 Chapter 7
+
 Slippage / Cost / Execution Analysis
+
         ↓
+
 Chapter 8
+
 Inventory / P&L / Basic Risk Accounting
+
         ↓
+
 Chapter 9
+
 Historical Data / ITCH Replay
+
         ↓
+
 Chapter 10
+
 Performance / Benchmarking
+
         ↓
+
 Chapter 11
+
 C++ → Python Integration
+
         ↓
+
 Chapter 12
+
 Quant Research / Out-of-Sample Integration
+
 ```
 
 ---
@@ -7042,23 +10851,37 @@ Completed.
 Implemented:
 
 ```text
+
 execution grouping
+
 executed quantity
+
 execution value
+
 VWAP
+
 arrival midpoint
+
 BUY slippage
+
 SELL slippage
+
 execution cost
+
 liquidity consumed
+
 per-order execution context
+
 per-order execution results
+
 ```
 
 The current model uses:
 
 ```text
+
 arrival midpoint
+
 ```
 
 as the primary benchmark.
@@ -7074,40 +10897,67 @@ Implemented.
 The module is:
 
 ```text
+
 cpp/include/lob/inventory_model.hpp
+
 cpp/src/inventory_model.cpp
+
 tests/cpp/test_inventory_model.cpp
+
 ```
 
 Implemented concepts:
 
 ```text
+
 signed position
+
 cash
+
 weighted-average cost basis
+
 realized P&L
+
 unrealized P&L
+
 portfolio value
+
 inventory exposure
+
 long accounting
+
 short accounting
+
 long → short crossing
+
 short → long crossing
+
 cost-basis reset
+
 zero-quantity no-op
+
 mark-to-market valuation
+
 ```
 
 The architectural rule is:
 
 ```text
+
 Matching engine
+
     →
+
 Trade
 
+
+
 Trade + Side
+
     →
+
 InventoryModel
+
 ```
 
 Advanced risk controls remain future work.
@@ -7121,54 +10971,95 @@ The Chapter 9 foundation is implemented.
 Implemented:
 
 ```text
+
 Nasdaq TotalView-ITCH 5.0 target
+
 binary ITCH message model
+
 ItchMessage variant
+
 A/F/E/C/X/D/U/R/S message representation
+
 raw byte parser
+
 big-endian field decoding
+
 timestamp decoding
+
 price decoding
+
 quantity decoding
+
 order-reference decoding
+
 security filtering
+
 selected-instrument scope
+
 parser errors
+
 ITCH-to-replay mapping
+
 ReplayOperation variant
+
 ReplayError
+
 historical Add
+
 historical Reduce
+
 historical Remove
+
 historical Replace
+
 current-book lifecycle validation
+
 duplicate Add protection
+
 deterministic replay
+
 no historical re-matching
+
 existing OrderBook reuse
+
 synthetic replay demonstration
+
 37/37 tests passing
+
 ```
 
 Current implementation files:
 
 ```text
+
 cpp/include/lob/itch_message.hpp
+
 cpp/include/lob/itch_parser.hpp
+
 cpp/include/lob/itch_mapper.hpp
+
 cpp/include/lob/itch_replay.hpp
 
+
+
 cpp/src/itch_parser.cpp
+
 cpp/src/itch_mapper.cpp
+
 cpp/src/itch_replay.cpp
 
+
+
 tests/cpp/test_itch.cpp
+
 ```
 
 The next historical-data stage is:
 
 ```text
+
 cpp/app/replay_itch_main.cpp
+
 ```
 
 followed by actual historical Nasdaq ITCH file replay.
@@ -7180,33 +11071,57 @@ followed by actual historical Nasdaq ITCH file replay.
 Performance work will follow:
 
 ```text
+
 Benchmark
+
     ↓
+
 Profile
+
     ↓
+
 Identify bottleneck
+
     ↓
+
 Optimize
+
     ↓
+
 Benchmark again
+
     ↓
+
 Verify correctness
+
 ```
 
 Potential measurements include:
 
 ```text
+
 events / second
+
 messages / second
+
 ITCH messages / second
+
 trades / second
+
 order insertion latency
+
 cancellation latency
+
 matching latency
+
 replay operation latency
+
 inventory update throughput
+
 execution-analysis throughput
+
 memory usage
+
 ```
 
 Measured performance will be distinguished from theoretical complexity claims.
@@ -7218,22 +11133,35 @@ Measured performance will be distinguished from theoretical complexity claims.
 The C++ engine will eventually expose data and computations to Python for:
 
 ```text
+
 research
+
 visualization
+
 statistics
+
 feature analysis
+
 experimentation
+
 ```
 
 Potential outputs include:
 
 ```text
+
 event data
+
 historical replay data
+
 trade data
+
 market metrics
+
 execution metrics
+
 inventory / P&L data
+
 ```
 
 ---
@@ -7245,23 +11173,41 @@ The final stage connects the simulator and historical reconstruction layer with 
 The planned research flow is:
 
 ```text
+
 Historical Data
+
       ↓
+
 ITCH Reconstruction
+
       ↓
+
 Simulation / Analysis
+
       ↓
+
 Feature Generation
+
       ↓
+
 Hypothesis
+
       ↓
+
 Train / Test Separation
+
       ↓
+
 Out-of-Sample Evaluation
+
       ↓
+
 Parameter Stability
+
       ↓
+
 Failure-Mode Analysis
+
 ```
 
 The objective is to make the simulator a reproducible quantitative research engine rather than merely a trading toy.
@@ -7275,81 +11221,149 @@ The objective is to make the simulator a reproducible quantitative research engi
 The final current conceptual system is:
 
 ```text
+
                          MARKET INPUTS
+
                               |
+
                +--------------+--------------+
+
                |                             |
+
                v                             v
+
        Synthetic Events               Historical ITCH
+
                |                             |
+
                v                             v
+
            Simulator                    Parser
+
                |                             |
+
                v                         ItchMessage
+
            OrderBook                         |
+
                |                         Mapper
+
                |                             |
+
                v                      ReplayOperation
+
         Matching Engine                       |
+
                |                         ItchReplay
+
                v                             |
+
              Trade                            |
+
                |                             |
+
         +------+------+                      |
+
         |      |      |                      |
+
         v      v      v                      |
+
      Metrics Execution Inventory             |
+
               Analysis   Model                |
+
         |       |       |                    |
+
         v       v       v                    |
+
    MarketMetrics Execution P&L               |
+
                   Result / Risk              |
+
                            \                  /
+
                             \                /
+
                              +------v-------+
+
                                     |
+
                                  OrderBook
+
                                     |
+
                                     v
+
                          Reconstructed / Simulated
+
                                Market State
+
                                     |
+
                                     v
+
                             Research Dataset
+
                                     |
+
                                     v
+
                              Python Research
+
                                     |
+
                                     v
+
                             Quantitative Analysis
+
 ```
 
 The key architectural distinction is:
 
 ```text
+
 Simulation:
 
+
+
 Event
+
  ↓
+
 Simulator
+
  ↓
+
 Matching
+
  ↓
+
 Trade
+
 ```
 
 versus:
 
 ```text
+
 Historical Reconstruction:
 
+
+
 ITCH Message
+
  ↓
+
 Semantic Interpretation
+
  ↓
+
 Replay Operation
+
  ↓
+
 Book State Mutation
+
 ```
 
 ---
@@ -7357,63 +11371,121 @@ Book State Mutation
 ## 251. Complete Architectural Progression
 
 ```text
+
 Chapter 1
+
 Represent Liquidity
 
+
+
         ↓
+
+
 
 Chapter 2
+
 Consume Liquidity
 
+
+
         ↓
+
+
 
 Chapter 3
+
 Locate Liquidity
 
+
+
         ↓
+
+
 
 Chapter 4
+
 Modify Liquidity
 
+
+
         ↓
+
+
 
 Chapter 5
+
 Drive Liquidity Through Events
 
+
+
         ↓
+
+
 
 Chapter 6
+
 Measure Market State
 
+
+
         ↓
+
+
 
 Chapter 7
+
 Measure Execution Quality
 
+
+
         ↓
+
+
 
 Chapter 8
+
 Maintain Inventory / P&L State
 
+
+
         ↓
+
+
 
 Chapter 9
+
 Reconstruct Historical Markets
 
+
+
         ↓
+
+
 
 Chapter 10
+
 Measure and Optimize Performance
 
+
+
         ↓
+
+
 
 Chapter 11
+
 Expose Engine to Python
+
+
 
         ↓
 
+
+
 Chapter 12
+
 Perform Quantitative Research
+
 ```
 
 ---
@@ -7423,50 +11495,79 @@ Perform Quantitative Research
 The central ownership model remains:
 
 ```text
+
 OrderBook
+
     owns
+
         PriceLevels
+
             own
+
                 Orders
+
 ```
 
 with:
 
 ```text
+
 OrderMap
+
     ↓
+
 auxiliary lookup index
+
 ```
 
 and:
 
 ```text
+
 Simulator
+
     ↓
+
 event orchestration
+
 trade history
+
 execution context
+
 InventoryModel coordination
+
 ```
 
 while:
 
 ```text
+
 ITCH Parser
+
     ↓
+
 protocol decoding
+
 ```
 
 ```text
+
 ITCH Mapper
+
     ↓
+
 semantic translation
+
 ```
 
 ```text
+
 ItchReplay
+
     ↓
+
 historical state mutation through existing OrderBook
+
 ```
 
 The historical replay layer therefore does not create a second market-state ownership hierarchy.
@@ -7478,30 +11579,55 @@ The historical replay layer therefore does not create a second market-state owne
 The complete current system protects:
 
 ```text
+
 OrderMap consistency
+
 FIFO priority
+
 Event ordering
+
 Read-only analytical calculations
+
 Arrival-reference-before-execution
+
 Per-order execution grouping
+
 Position sign consistency
+
 Cost-basis consistency
+
 Zero-quantity inventory no-op
+
 Realized / unrealized P&L separation
+
 Portfolio accounting identity
+
 Protocol separation
+
 ITCH message validity
+
 Exact integer prices
+
 Order identity consistency
+
 Historical lifecycle consistency
+
 Selected-security filtering
+
 Feed-order preservation
+
 Parser purity
+
 Mapper purity
+
 Replay state validation
+
 No historical re-matching
+
 Deterministic replay
+
 Existing OrderBook reuse
+
 ```
 
 ---
@@ -7509,55 +11635,105 @@ Existing OrderBook reuse
 ## 254. Complete Repository
 
 ```text
+
 hybrid-lob-simulator/
+
 │
+
 ├── cpp/
+
 │   │
+
 │   ├── include/
+
 │   │   └── lob/
+
 │   │       ├── types.hpp
+
 │   │       ├── order.hpp
+
 │   │       ├── price_level.hpp
+
 │   │       ├── order_book.hpp
+
 │   │       ├── order_map.hpp
+
 │   │       ├── trade.hpp
+
 │   │       ├── event.hpp
+
 │   │       ├── simulator.hpp
+
 │   │       ├── metrics.hpp
+
 │   │       ├── execution.hpp
+
 │   │       ├── inventory_model.hpp
+
 │   │       ├── itch_message.hpp
+
 │   │       ├── itch_parser.hpp
+
 │   │       ├── itch_mapper.hpp
+
 │   │       └── itch_replay.hpp
+
 │   │
+
 │   ├── src/
+
 │   │   ├── order_book.cpp
+
 │   │   ├── order_map.cpp
+
 │   │   ├── simulator.cpp
+
 │   │   ├── metrics.cpp
+
 │   │   ├── execution.cpp
+
 │   │   ├── inventory_model.cpp
+
 │   │   ├── itch_parser.cpp
+
 │   │   ├── itch_mapper.cpp
+
 │   │   └── itch_replay.cpp
+
 │   │
+
 │   └── app/
+
 │       ├── simulate_main.cpp
+
 │       └── replay_itch_main.cpp
+
 │
+
 ├── tests/
+
 │   └── cpp/
+
 │       ├── test_order_book.cpp
+
 │       ├── test_matching_engine.cpp
+
 │       ├── test_simulator.cpp
+
 │       ├── test_metrics.cpp
+
 │       ├── test_execution.cpp
+
 │       ├── test_inventory_model.cpp
+
 │       └── test_itch.cpp
+
 │
+
 └── docs/
+
     └── ARCHITECTURE.md
+
 ```
 
 ---
@@ -7565,67 +11741,121 @@ hybrid-lob-simulator/
 ## 255. Current Implementation Status
 
 ```text
+
 Chapter 1
+
     Complete
+
+
 
 Chapter 2
+
     Complete
+
+
 
 Chapter 3
+
     Complete
+
+
 
 Chapter 4
+
     Complete
+
+
 
 Chapter 5
+
     Complete
+
+
 
 Chapter 6
+
     Complete
+
+
 
 Chapter 7
+
     Complete
+
+
 
 Chapter 8
+
     Complete
 
+
+
 Chapter 9
+
     Core implementation complete
+
     Synthetic replay demonstration complete
+
     37 / 37 tests passing
+
     Real historical-feed executable still pending
+
 ```
 
 The current Chapter 9 completion point is therefore:
 
 ```text
+
 ITCH protocol representation
+
         ↓
+
 ITCH parser
+
         ↓
+
 ITCH semantic mapper
+
         ↓
+
 Replay operations
+
         ↓
+
 Historical book mutation
+
         ↓
+
 Existing OrderBook
+
         ↓
+
 37/37 tests passing
+
 ```
 
 The remaining real-data work is:
 
 ```text
+
 Actual historical ITCH file
+
         ↓
+
 Replay executable
+
         ↓
+
 Real feed ingestion
+
         ↓
+
 Real one-day / one-security reconstruction
+
         ↓
+
 Validation against historical data
+
 ```
 
 ---
@@ -7635,144 +11865,243 @@ Validation against historical data
 The project is now a deterministic first-generation market simulation and historical reconstruction stack:
 
 ```text
+
                          SYNTHETIC MARKET
+
                                 |
+
                                 v
+
                               Event
+
                                 |
+
                                 v
+
                             Simulator
+
                                 |
+
                                 v
+
                             OrderBook
+
                                 |
+
                           Matching Engine
+
                                 |
+
                                 v
+
                               Trades
+
                            /     |     \
+
                           /      |      \
+
                          v       v       v
+
                     Metrics  Execution  Inventory
+
                                Analysis   Model
+
                           |       |         |
+
                           v       v         v
+
                    MarketMetrics Execution  P&L
+
                                Result       |
+
                                             v
+
                                       Portfolio State
+
 ```
 
 while historical data follows:
 
 ```text
+
                          HISTORICAL MARKET
+
                                 |
+
                                 v
+
                            ITCH Binary
+
                                 |
+
                                 v
+
                             ITCH Parser
+
                                 |
+
                                 v
+
                             ItchMessage
+
                                 |
+
                                 v
+
                            ITCH Mapper
+
                                 |
+
                                 v
+
                          ReplayOperation
+
                                 |
+
                                 v
+
                             ItchReplay
+
                                 |
+
                                 v
+
                             OrderBook
+
                                 |
+
                                 v
+
                     Historical Book State
+
 ```
 
 The two paths share the same central order-book state representation while preserving different semantics for:
 
 ```text
+
 simulation
+
 ```
 
 and:
 
 ```text
+
 historical reconstruction
+
 ```
 
 The core remains:
 
 ```text
+
 OrderBook
+
     owns
+
         PriceLevels
+
             own
+
                 Orders
+
 ```
 
 with:
 
 ```text
+
 OrderMap
+
     → auxiliary lookup
+
 ```
 
 and:
 
 ```text
+
 Simulator
+
     → synthetic event orchestration
+
     → generated trade history
+
     → execution context
+
     → InventoryModel coordination
+
 ```
 
 while:
 
 ```text
+
 ITCH Parser
+
     → protocol decoding
+
 ```
 
 ```text
+
 ITCH Mapper
+
     → semantic replay translation
+
 ```
 
 ```text
+
 ItchReplay
+
     → historical state mutation
+
 ```
 
 The resulting system is a deterministic market simulation and historical reconstruction core with clearly separated:
 
 ```text
+
 market state
+
 event processing
+
 matching
+
 execution analysis
+
 inventory accounting
+
 protocol decoding
+
 semantic replay
+
 historical reconstruction
+
 ```
 
 The architecture deliberately favors:
 
 ```text
+
 correctness
+
 determinism
+
 explicit ownership
+
 transparent state transitions
+
 clear invariants
+
 testability
+
 semantic separation
+
 measured optimization
+
 ```
 
 over premature complexity.
@@ -7780,29 +12109,53 @@ over premature complexity.
 The project's current progression is:
 
 ```text
+
 Represent Liquidity
+
         ↓
+
 Consume Liquidity
+
         ↓
+
 Locate Liquidity
+
         ↓
+
 Modify Liquidity
+
         ↓
+
 Drive Liquidity Through Events
+
         ↓
+
 Measure Market State
+
         ↓
+
 Measure Execution Quality
+
         ↓
+
 Maintain Inventory / P&L
+
         ↓
+
 Reconstruct Historical Markets
+
         ↓
+
 Benchmark
+
         ↓
+
 Integrate with Python
+
         ↓
+
 Quantitative Research
+
 ```
 
 This preserves the established vector/value architecture while extending it with a protocol-aware historical replay layer that feeds the same `OrderBook` rather than creating a separate market-state implementation.
@@ -7828,22 +12181,35 @@ The established 7,808 lines are the historical architectural record and must rem
 Future updates must use this rule:
 
 ```text
+
 Existing document
+
         ↓
+
 PRESERVE EXACTLY
+
         ↓
+
 Append new verified information
+
         ↓
+
 Do not rewrite previous chapters
+
 ```
 
 When a future discussion needs to update the context:
 
 - do not regenerate the document from a compressed summary
+
 - do not merge sections by paraphrasing old content
+
 - do not remove supposedly redundant historical details
+
 - do not reorder the old chapter record
+
 - do not shorten the document for convenience
+
 - append the new state at the end
 
 This is especially important because the document is used as a continuity record for future technical discussions.
@@ -7855,18 +12221,31 @@ This is especially important because the document is used as a continuity record
 The project status is now:
 
 ```text
+
 Chapter 1  — Basic Limit Order Book                  ✅ COMPLETE
+
 Chapter 2  — Matching & Execution Engine              ✅ COMPLETE
+
 Chapter 3  — Individual Order Tracking                ✅ COMPLETE
+
 Chapter 4  — Order Modification / Replace             ✅ COMPLETE
+
 Chapter 5  — Event-Driven Market Simulation            ✅ COMPLETE
+
 Chapter 6  — Market Microstructure Metrics             ✅ COMPLETE
+
 Chapter 7  — Execution / Slippage / Cost Analysis      ✅ COMPLETE
+
 Chapter 8  — Inventory / P&L / Risk                     ✅ COMPLETE
+
 Chapter 9  — Historical Nasdaq ITCH Replay              ✅ COMPLETE
+
 Chapter 10 — Performance / Benchmarking                 ← CURRENT
+
 Chapter 11 — C++ → Python Integration                    planned
+
 Chapter 12 — Quantitative Research / OOS                planned
+
 ```
 
 Chapters 1–9 are considered complete and working unless a new concrete correctness defect is discovered.
@@ -7882,38 +12261,67 @@ The project has now entered Chapter 10.
 The completed historical-data path is:
 
 ```text
+
 Nasdaq TotalView-ITCH 5.0 BinaryFILE
+
                 ↓
+
         ItchFileReader
+
                 ↓
+
           raw payload
+
                 ↓
+
           ItchParser
+
                 ↓
+
          ItchMessage
+
                 ↓
+
           ItchMapper
+
                 ↓
+
        ReplayOperation
+
                 ↓
+
            ItchReplay
+
                 ↓
+
           existing
+
           OrderBook
+
 ```
 
 The crucial semantic distinction is:
 
 ```text
+
 Synthetic simulation
+
     → hypothetical participant actions
+
     → Simulator
+
     → matching engine
 
+
+
 Historical replay
+
     → observed exchange messages
+
     → ItchReplay
+
     → direct historical state mutation
+
 ```
 
 Historical execution and cancellation messages must not be treated as fresh synthetic orders and re-matched through the matching engine.
@@ -7927,30 +12335,47 @@ The existing `OrderBook` remains the central market-state representation.
 The current ITCH message family covered by the parser/replay architecture is:
 
 ```text
+
 A  — Add Order
+
 F  — Add Order with MPID
+
 E  — Order Executed
+
 C  — Order Executed with Price
+
 X  — Order Cancel
+
 D  — Order Delete
+
 U  — Order Replace
+
 R  — Stock Directory
+
 S  — System Event
+
 ```
 
 The parser's `ParseError` family includes:
 
 ```text
+
 UnknownMessageType
+
 IncompleteMessage
+
 InvalidMessageLength
+
 MalformedMessage
+
 ```
 
 The parser operates on bytes using:
 
 ```cpp
+
 using Byte = std::uint8_t;
+
 ```
 
 Protocol integers are decoded in big-endian order with bounds checking.
@@ -7968,22 +12393,35 @@ That assumption is invalid.
 The canonical rule is now:
 
 ```text
+
 raw payload
+
     ↓
+
 parse according to message type
+
     ↓
+
 typed ItchMessage
+
     ↓
+
 extract stock_locate from the typed message
+
     ↓
+
 stock-specific filtering
+
 ```
 
 Never use:
 
 ```text
+
 payload[1]
+
 payload[2]
+
 ```
 
 as a universal Stock Locate extraction mechanism.
@@ -8001,42 +12439,63 @@ The semantic mapper translates decoded protocol messages into historical replay 
 Current operation family:
 
 ```text
+
 AddOperation
+
 ReduceOperation
+
 RemoveOperation
+
 ReplaceOperation
+
 ```
 
 Current mapping:
 
 ```text
+
 A / F  → AddOperation
+
 E / C  → ReduceOperation
+
 X      → ReduceOperation
+
 D      → RemoveOperation
+
 U      → ReplaceOperation
+
 R / S  → IgnoredMessage
+
 ```
 
 `ReplayError` includes:
 
 ```text
+
 UnknownOrder
+
 InvalidLifecycle
+
 InvalidQuantity
+
 IgnoredMessage
+
 ```
 
 For historical cancel (`X`), the message quantity means:
 
 ```text
+
 quantity_to_remove
+
 ```
 
 not:
 
 ```text
+
 new_target_quantity
+
 ```
 
 Therefore replay must subtract the cancelled shares from the currently resting quantity.
@@ -8054,25 +12513,37 @@ The mapper may not know the replacement side directly in the same way the origin
 The targeted historical dataset is:
 
 ```text
+
 Nasdaq TotalView-ITCH 5.0
+
 Date: 2019-10-18
+
 File: S101819-v50.txt.gz
+
 ```
 
 The decompressed form is:
 
 ```text
+
 S101819-v50.txt
+
 ```
 
 The file framing is:
 
 ```text
+
 2-byte big-endian payload length
+
             ↓
+
         payload bytes
+
             ↓
+
 repeat
+
 ```
 
 A zero-length record indicates termination.
@@ -8080,12 +12551,19 @@ A zero-length record indicates termination.
 `ItchFileReader` is responsible for:
 
 ```text
+
 record framing
+
 exact payload reads
+
 EOF handling
+
 truncation detection
+
 zero-length termination
+
 finished state
+
 ```
 
 The parser is responsible for protocol interpretation.
@@ -8095,20 +12573,27 @@ The replay layer is responsible for historical state transition semantics.
 The real historical replay executable is:
 
 ```text
+
 replay_itch_main
+
 ```
 
 CLI form:
 
 ```text
+
 replay_itch_main <file> <stock_locate> <N|all>
+
 ```
 
 Examples:
 
 ```text
+
 replay_itch_main S101819-v50.txt 123 1000
+
 replay_itch_main S101819-v50.txt 123 all
+
 ```
 
 Do not expose local Windows absolute paths in public usage examples.
@@ -8120,27 +12605,41 @@ Do not expose local Windows absolute paths in public usage examples.
 The Chapter 9 ITCH test suite reached:
 
 ```text
+
 37 / 37 tests passed
+
 ```
 
 Final status reported:
 
 ```text
+
 All ITCH tests passed.
+
 ```
 
 The file-reader coverage includes dedicated cases for:
 
 ```text
+
 clean EOF
+
 empty file
+
 finished state
+
 incomplete length field
+
 multiple messages
+
 single message
+
 payload preservation
+
 truncated payload
+
 zero-length termination
+
 ```
 
 Chapter 9 should therefore be treated as a completed subsystem rather than reopened by default.
@@ -8158,10 +12657,15 @@ Its purpose is to create small, deterministic, inspectable binary datasets that 
 New files:
 
 ```text
+
 cpp/include/lob/itch_sample_reader.hpp
+
 cpp/src/itch_sample_reader.cpp
+
 cpp/app/create_itch_samples_main.cpp
+
 cpp/app/inspect_itch_sample_main.cpp
+
 ```
 
 The diagnostic subsystem is separate from the main historical replay executable.
@@ -8173,17 +12677,25 @@ The diagnostic subsystem is separate from the main historical replay executable.
 Generated sample files are stored under:
 
 ```text
+
 data/itch/2019-10-18/sample/
+
 ```
 
 Current generated datasets:
 
 ```text
+
 stock_100.bin
+
 stock_1000.bin
+
 stock_10000.bin
+
 stock_100000.bin
+
 stock_123_all.bin
+
 ```
 
 The finite samples represent target-count requests.
@@ -8193,7 +12705,9 @@ The actual number of records present may be smaller than the nominal target when
 Therefore:
 
 ```text
+
 target_count
+
 ```
 
 must not be interpreted as a guarantee that exactly that many records exist.
@@ -8209,36 +12723,55 @@ The frozen sample header is exactly 28 bytes.
 Its conceptual structure is:
 
 ```text
+
 uint32 magic
+
 uint32 version
+
 uint8  dataset_kind
+
 uint8  reserved
+
 uint8  reserved
+
 uint8  reserved
+
 uint64 stock_locate
+
 uint64 target_count
+
 ```
 
 Current magic value:
 
 ```text
+
 0x484C4F42
+
 ```
 
 Current format version:
 
 ```text
+
 1
+
 ```
 
 Dataset kind identifiers are frozen as:
 
 ```text
+
 Stock100       = 1
+
 Stock1000      = 2
+
 Stock10000     = 3
+
 Stock100000    = 4
+
 Stock123All    = 5
+
 ```
 
 The reserved bytes exist in the frozen header and must remain part of the format.
@@ -8250,27 +12783,45 @@ The reserved bytes exist in the frozen header and must remain part of the format
 The frozen sample format serializes the decoded message category using stable identifiers:
 
 ```text
+
 AddOrder                 = 1
+
 AddOrderMPID             = 2
+
 OrderExecuted            = 3
+
 OrderExecutedWithPrice   = 4
+
 OrderCancel              = 5
+
 OrderDelete              = 6
+
 OrderReplace             = 7
+
 StockDirectory           = 8
+
 SystemEvent              = 9
+
 Other                   = 255
+
 ```
 
 The serialized operation identifiers are:
 
 ```text
+
 Add       = 1
+
 Reduce    = 2
+
 Remove    = 3
+
 Replace   = 4
+
 Ignored   = 5
+
 Error     = 255
+
 ```
 
 These identifiers are part of the diagnostic file contract and should not be changed casually.
@@ -8282,31 +12833,49 @@ These identifiers are part of the diagnostic file contract and should not be cha
 Each diagnostic sample record contains:
 
 ```text
+
 record_number
+
 message_type
+
 message_class_name
+
 raw_payload
+
 message_fields
+
 operation_type
+
 mapping_result
+
 ```
 
 Field schemas currently used for individually serialized supported message classes are:
 
 ```text
+
 AddOrder              → 8 fields
+
 AddOrderMPID          → 9 fields
+
 OrderExecuted         → 6 fields
+
 OrderExecutedWithPrice→ 8 fields
+
 OrderCancel           → 5 fields
+
 OrderDelete           → 4 fields
+
 OrderReplace          → 7 fields
+
 ```
 
 Unsupported message classes use:
 
 ```text
+
 message_fields = not serialized individually
+
 ```
 
 The raw payload remains available for low-level inspection even when a complete field-level serialization is not provided.
@@ -8320,64 +12889,99 @@ The raw payload remains available for low-level inspection even when a complete 
 It is not responsible for:
 
 ```text
+
 OrderBook mutation
+
 matching
+
 historical replay
+
 parser semantics
+
 ```
 
 Its responsibilities are limited to:
 
 ```text
+
 open sample file
+
 read header
+
 validate frozen header fields
+
 read record framing
+
 decode serialized record fields
+
 return records
+
 track finished state
+
 report reader errors
+
 ```
 
 Current reader state includes:
 
 ```text
+
 std::ifstream file
+
 bool finished = false
+
 bool open_failed = false
+
 bool debug_mode = false
+
 ```
 
 Constructor form:
 
 ```cpp
+
 explicit ItchSampleReader(const std::string& file_path, bool debug_mode = false);
+
 ```
 
 Header result:
 
 ```text
+
 variant<SampleHeader, SampleReaderError>
+
 ```
 
 Record result:
 
 ```text
+
 variant<SampleRecord, SampleReaderError>
+
 ```
 
 Current `SampleReaderError` family is:
 
 ```text
+
 CanNotOpenFile
+
 InvalidMagic
+
 UnsupportedVersion
+
 InvalidDatasetKind
+
 UnexpectedEOF
+
 InvalidMessageType
+
 InvalidOperationType
+
 InvalidFieldLength
+
 ReadFailure
+
 ```
 
 ---
@@ -8393,17 +12997,25 @@ That allowed an `AddOrderMPID` record to become truncated at the field level.
 The reader consequently reported an error equivalent to:
 
 ```text
+
 InvalidFieldLength
+
 ```
 
 The implemented fix was architectural at the serialization boundary:
 
 ```text
+
 build the complete record in memory
+
         ↓
+
 validate the complete serialized structure
+
         ↓
+
 write the completed record atomically
+
 ```
 
 After the fix, representative records around the previous failure point decoded correctly.
@@ -8411,26 +13023,43 @@ After the fix, representative records around the previous failure point decoded 
 Representative record 98:
 
 ```text
+
 message type = AddOrderMPID
+
 stock_locate = 1
+
 tracking = 0
+
 timestamp = 32421087866637
+
 order_ref = 5459185
+
 side = BUY
+
 shares = 100
+
 symbol = A
+
 price = 587300
+
 mpid = OHOS
+
 ```
 
 The corresponding mapper result is:
 
 ```text
+
 AddOperation
+
     order_id = 5459185
+
     side = BUY
+
     quantity = 100
+
     price = 587300
+
 ```
 
 This serialization fix must remain in place.
@@ -8444,38 +13073,55 @@ Do not revert to fragmented record construction for convenience.
 The diagnostic sample inspector is:
 
 ```text
+
 inspect_itch_sample_main
+
 ```
 
 Canonical CLI:
 
 ```text
+
 inspect_itch_sample_main <sample_file> <N|all> [on|off]
+
 ```
 
 Examples:
 
 ```text
+
 inspect_itch_sample_main stock_100.bin 10
+
 inspect_itch_sample_main stock_100.bin 10 on
+
 inspect_itch_sample_main stock_100.bin 10 off
+
 inspect_itch_sample_main stock_123_all.bin all
+
 inspect_itch_sample_main stock_123_all.bin all on
+
 ```
 
 The optional debug argument has the semantics:
 
 ```text
+
 omitted → off
+
 on      → on
+
 off     → off
+
 anything else → invalid debug mode
+
 ```
 
 For example:
 
 ```text
+
 inspect_itch_sample_main stock_100.bin 100 ono
+
 ```
 
 must report the debug-mode error rather than silently accepting the invalid value.
@@ -8483,7 +13129,9 @@ must report the debug-mode error rather than silently accepting the invalid valu
 The usage text intentionally uses the generic executable name:
 
 ```text
+
 inspect_itch_sample_main
+
 ```
 
 rather than displaying `argv[0]`.
@@ -8503,19 +13151,29 @@ The implementation must preserve a clean translation-unit boundary.
 `inspect_itch_sample_main.cpp` contains:
 
 ```text
+
 main
+
 CLI parsing
+
 usage output
+
 display helpers
+
 ```
 
 `itch_sample_reader.cpp` contains:
 
 ```text
+
 ItchSampleReader implementation
+
 sample-header reading
+
 record decoding
+
 sample-reader error handling
+
 ```
 
 The previous multiple-definition linker error demonstrated why reader implementation must not accidentally be duplicated inside the inspector translation unit.
@@ -8525,20 +13183,31 @@ The correct build links one inspector translation unit and one reader implementa
 Example direct build:
 
 ```bash
+
 rm -f build/inspect_itch_sample_main.exe
+
 g++ -std=c++17 -Wall -Wextra -pedantic \
+
 -Icpp/include/lob \
+
 cpp/app/inspect_itch_sample_main.cpp \
+
 cpp/src/itch_sample_reader.cpp \
+
 -o build/inspect_itch_sample_main.exe
+
 ```
 
 Canonical execution examples:
 
 ```bash
+
 ./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100
+
 ./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100 on
+
 ./build/inspect_itch_sample_main.exe data/itch/2019-10-18/sample/stock_100.bin 100 ono
+
 ```
 
 ---
@@ -8552,31 +13221,53 @@ They do not become the canonical historical market-data architecture.
 The canonical production-oriented path remains:
 
 ```text
+
 real ITCH file
+
     ↓
+
 ItchFileReader
+
     ↓
+
 ItchParser
+
     ↓
+
 ItchMapper
+
     ↓
+
 ItchReplay
+
     ↓
+
 OrderBook
+
 ```
 
 The sample path is:
 
 ```text
+
 real ITCH file
+
     ↓
+
 create_itch_samples_main
+
     ↓
+
 frozen diagnostic sample
+
     ↓
+
 ItchSampleReader
+
     ↓
+
 inspect_itch_sample_main
+
 ```
 
 This diagnostic branch exists to make protocol and semantic behavior reproducible on small inputs.
@@ -8590,29 +13281,45 @@ This diagnostic branch exists to make protocol and semantic behavior reproducibl
 It records:
 
 ```text
+
 data directory structure
+
 raw ITCH data
+
 decompressed ITCH data
+
 sample datasets
+
 processed-data area
+
 frozen sample format
+
 sample generator
+
 sample reader
+
 sample inspector
+
 Stock Locate extraction rule
+
 integrity expectations
+
 ```
 
 The documentation must preserve the distinction between:
 
 ```text
+
 raw historical source data
+
 ```
 
 and:
 
 ```text
+
 derived diagnostic datasets
+
 ```
 
 Generated sample data is not the authoritative historical source.
@@ -8624,7 +13331,9 @@ Generated sample data is not the authoritative historical source.
 The project is now entering:
 
 ```text
+
 Chapter 10 — Performance / Benchmarking
+
 ```
 
 The first task is not optimization.
@@ -8634,19 +13343,33 @@ The first task is measurement.
 The required sequence is:
 
 ```text
+
 Baseline measurement
+
         ↓
+
 Profiling
+
         ↓
+
 Identify actual bottleneck
+
         ↓
+
 Change the bottleneck
+
         ↓
+
 Re-measure
+
         ↓
+
 Run correctness tests
+
         ↓
+
 Check determinism
+
 ```
 
 No major data-structure redesign should occur before baseline measurement unless a concrete correctness problem requires it.
@@ -8660,16 +13383,27 @@ The initial benchmark program should be designed to measure the current architec
 Potential metrics include:
 
 ```text
+
 events processed / second
+
 messages processed / second
+
 trades generated / second
+
 insert cost
+
 cancel cost
+
 modify / replace cost
+
 match cost
+
 historical replay throughput
+
 sample reading throughput
+
 memory footprint
+
 ```
 
 The exact metric set should be determined by the first baseline experiment rather than by prematurely optimizing for a preconceived benchmark.
@@ -8685,34 +13419,55 @@ A reported number without workload definition is not a useful engineering result
 Every benchmark should record at least:
 
 ```text
+
 input dataset
+
 message/event count
+
 operation mix
+
 warm-up policy if any
+
 measurement interval
+
 compiler/toolchain
+
 optimization flags
+
 machine/environment
+
 result
+
 ```
 
 For historical replay benchmarks, the workload should identify:
 
 ```text
+
 which ITCH file
+
 which stock locate or filter
+
 how many records
+
 which message categories are included
+
 ```
 
 For synthetic simulator benchmarks, the workload should identify:
 
 ```text
+
 add/cancel/modify/match proportions
+
 order-size distribution if randomized
+
 price distribution if randomized
+
 book depth assumptions
+
 number of events
+
 ```
 
 Benchmarks should be deterministic whenever the tested workload is intended to be deterministic.
@@ -8726,10 +13481,15 @@ The current baseline must be measured using the architecture already implemented
 Do not make claims such as:
 
 ```text
+
 high-frequency
+
 HFT-grade
+
 ultra-low-latency
+
 production-grade
+
 ```
 
 unless the project later contains measurements and evidence sufficient to justify those descriptions.
@@ -8739,7 +13499,9 @@ The project should report measured engineering quantities rather than marketing 
 The benchmark chapter therefore continues the same methodological rule used throughout the project:
 
 ```text
+
 measurement before optimization
+
 ```
 
 ---
@@ -8751,13 +13513,17 @@ The first Chapter 10 implementation should be a small benchmark executable or be
 The initial goal is to answer:
 
 ```text
+
 How fast does the current implementation process a defined workload?
+
 ```
 
 before asking:
 
 ```text
+
 How can the implementation be made faster?
+
 ```
 
 The first benchmark should therefore minimize new abstraction and reuse the current interfaces wherever possible.
@@ -8771,12 +13537,19 @@ The benchmark should avoid changing the semantics of the tested engine.
 Every performance change must preserve:
 
 ```text
+
 book state
+
 FIFO behavior
+
 trade generation
+
 OrderMap consistency
+
 historical replay semantics
+
 inventory behavior where included
+
 ```
 
 The benchmark result is invalid as an optimization result when the optimized implementation changes semantics.
@@ -8784,11 +13557,17 @@ The benchmark result is invalid as an optimization result when the optimized imp
 Therefore the validation sequence remains:
 
 ```text
+
 baseline
+
 → change
+
 → remeasure
+
 → correctness tests
+
 → determinism check
+
 ```
 
 A faster incorrect engine is not a successful Chapter 10 result.
@@ -8804,11 +13583,17 @@ Performance work must not silently introduce nondeterministic state transitions 
 When the same deterministic workload is replayed multiple times, the expected invariants are:
 
 ```text
+
 same final book state
+
 same trade sequence
+
 same counts
+
 same aggregate metrics
+
 same replay result
+
 ```
 
 The benchmark system should make it possible to compare repeated runs rather than only record one isolated timing number.
@@ -8820,27 +13605,49 @@ The benchmark system should make it possible to compare repeated runs rather tha
 The repository now conceptually contains:
 
 ```text
+
 Core market-state engine
+
     ↓
+
 Synthetic simulator
+
     ↓
+
 Metrics / execution / inventory analysis
+
     ↓
+
 Historical ITCH parser
+
     ↓
+
 Historical ITCH mapper
+
     ↓
+
 Historical ITCH replay
+
     ↓
+
 Historical file framing
+
     ↓
+
 Diagnostic sample generation
+
     ↓
+
 Diagnostic sample reading
+
     ↓
+
 Diagnostic sample inspection
+
     ↓
+
 Performance benchmarking
+
 ```
 
 Python remains future scope.
@@ -8854,20 +13661,35 @@ The current project should therefore move forward from the completed C++ histori
 Unless a concrete bug is presented, do not reopen:
 
 ```text
+
 vector/value ownership
+
 OrderMap as an auxiliary index
+
 integer price representation
+
 FIFO semantics
+
 existing matching behavior
+
 Simulator event architecture
+
 Metrics read-only design
+
 Execution arrival-midpoint semantics
+
 InventoryModel accounting semantics
+
 ITCH message-layer separation
+
 historical-vs-synthetic semantic separation
+
 ItchFileReader framing responsibility
+
 Stock Locate extraction rule
+
 sample record atomic serialization
+
 ```
 
 Any proposed change to those components must first identify the exact correctness or measured-performance reason for the change.
@@ -8879,26 +13701,39 @@ Any proposed change to those components must first identify the exact correctnes
 The additional Chapter 9 diagnostic files are:
 
 ```text
+
 cpp/include/lob/itch_sample_reader.hpp
+
 cpp/src/itch_sample_reader.cpp
+
 cpp/app/create_itch_samples_main.cpp
+
 cpp/app/inspect_itch_sample_main.cpp
+
 ```
 
 The data documentation file is:
 
 ```text
+
 data.md
+
 ```
 
 The generated diagnostic sample files are:
 
 ```text
+
 data/itch/2019-10-18/sample/stock_100.bin
+
 data/itch/2019-10-18/sample/stock_1000.bin
+
 data/itch/2019-10-18/sample/stock_10000.bin
+
 data/itch/2019-10-18/sample/stock_100000.bin
+
 data/itch/2019-10-18/sample/stock_123_all.bin
+
 ```
 
 These are derived diagnostic artifacts and should not be confused with the original historical ITCH source file.
@@ -8910,88 +13745,577 @@ These are derived diagnostic artifacts and should not be confused with the origi
 At the beginning of the next technical discussion, the assumed starting state is:
 
 ```text
+
 Chapters 1–8
+
     → complete and trusted
+
+
 
 Chapter 9 core ITCH parser / mapper / replay
+
     → complete and trusted
 
+
+
 Real historical ITCH file reader / replay path
+
     → complete and working
 
+
+
 ITCH test suite
+
     → 37 / 37 passed
 
+
+
 Diagnostic sample subsystem
+
     → implemented
+
+
 
 Sample serialization truncation bug
+
     → fixed
 
+
+
 Sample inspector debug mode
+
     → implemented
 
+
+
 Inspector usage-path display
+
     → fixed to generic executable name
 
+
+
 Chapter 10
+
     → current chapter
+
     → begin with baseline performance measurement
+
 ```
 
 The next work should therefore start from Chapter 10 and should not restart Chapter 9 unless the user presents a newly discovered concrete correctness defect.
 
 ---
 
-## A31. Canonical Chapter 10 Starting Checklist
+## A31. Chapter 10 — Performance / Benchmarking / Profiling Completed
+
+Chapter 10 performance measurement and profiling are now complete for the current architecture.
+
+The chapter established a baseline first and then decomposed the measured workloads with deterministic instrumentation before any optimization was applied.
+
+The completed Chapter 10 workflow was:
+
+```text
+
+Baseline measurement
+
+        ↓
+
+Profiling
+
+        ↓
+
+Hot-path identification
+
+        ↓
+
+Bottleneck confirmation
+
+```
+
+No performance optimization was performed as part of the profiling phase.
 
 ### Benchmark Foundation
 
-- [ ] Identify the first benchmark workload.
-- [ ] Decide exactly what is being measured.
-- [ ] Define the input size.
-- [ ] Define the operation/message mix.
-- [ ] Build the benchmark around the existing interfaces.
-- [ ] Compile with the intended C++17 toolchain and benchmark flags.
-- [ ] Run repeated baseline measurements.
-- [ ] Record raw results.
-- [ ] Record environment and workload metadata.
+The benchmark infrastructure records:
 
-### Profiling
+```text
 
-- [ ] Profile only after a valid baseline exists.
-- [ ] Identify the dominant measured bottleneck.
-- [ ] Confirm the bottleneck is actually responsible for the observed cost.
-- [ ] Avoid optimizing based only on intuition.
+workload name
 
-### Optimization
+operation count
 
-- [ ] Make one targeted change.
-- [ ] Rebuild.
-- [ ] Re-run correctness tests.
-- [ ] Re-run determinism checks.
-- [ ] Re-run the same benchmark workload.
-- [ ] Compare before/after measurements.
-- [ ] Keep the change only when the measured result justifies it and semantics remain correct.
+total duration
 
-### Documentation
+minimum duration
 
-- [ ] Record baseline.
-- [ ] Record bottleneck.
-- [ ] Record optimization.
-- [ ] Record post-change result.
-- [ ] Record correctness result.
-- [ ] Record determinism result.
+median duration
+
+maximum duration
+
+throughput
+
+nanoseconds per operation
+
+```
+
+The benchmark framework uses `std::chrono::steady_clock` and explicit warm-up / measured runs where appropriate.
+
+The baseline workloads cover:
+
+```text
+
+Chapters 1–5  → core market engine
+
+Chapters 6–7  → market analysis / execution analysis
+
+Chapter 8     → inventory / accounting
+
+Chapter 9     → historical ITCH replay
+
+```
+
+The benchmark results established that the current vector-based architecture exhibits strongly workload-dependent scaling, especially for operations that remove orders from the middle of vectors or repeatedly maintain ordered price-level storage.
+
+### Profiling Infrastructure
+
+The completed profiling subsystem consists of:
+
+```text
+
+cpp/include/lob/profile.hpp
+
+cpp/src/profile.cpp
+
+tests/cpp/test_profile.cpp
+
+cpp/app/profile_main.cpp
+```
+
+The profiler provides:
+
+```text
+
+named scopes
+
+call count
+
+total duration
+
+average duration
+
+minimum duration
+
+maximum duration
+
+share of recorded time
+```
+
+Timing is implemented with RAII through:
+
+```cpp
+
+LOB_PROFILE_SCOPE("scope name");
+
+```
+
+The profiler reports inclusive scope timing, so parent and child timings must not be summed as independent exclusive costs.
+
+### Confirmed Profiled Hot Paths
+
+The completed profiling run identified the following measured internal behavior.
+
+#### OrderBook::add
+
+The 10,000-order add workload recorded approximately:
+
+```text
+
+OrderBook::add
+    ≈ 59.10 ms
+
+OrderBook::add::ordermap_add
+    ≈ 3.67 ms
+
+OrderBook::add::new_level_insert
+    ≈ 1.75 ms
+
+OrderMap::add
+    ≈ 1.64 ms
+```
+
+In this controlled workload, every insertion created a new price level, so new-level insertion and map insertion explain only a small fraction of the total profiled `OrderBook::add` time. The remaining cost is therefore associated with other book-level work in the current implementation rather than the explicit map insertion itself.
+
+#### Cancel / Restore
+
+The 10,000-order cancel / restore workload recorded approximately:
+
+```text
+
+OrderBook::cancel
+    ≈ 304.07 ms
+
+cancel::price_level_search
+    ≈ 293.35 ms
+
+cancel::empty_level_cleanup
+    ≈ 265.34 ms
+
+OrderBook::add (restore)
+    ≈ 156.12 ms
+```
+
+The profile showed that vector erasure itself was comparatively small:
+
+```text
+
+cancel::vector_erase
+    ≈ 0.71 ms
+```
+
+The important measured cost is therefore the surrounding price-level / cleanup path rather than the raw vector erase operation alone.
+
+Because the reported scopes are nested, `price_level_search` and `empty_level_cleanup` are inclusive child timings and are not additive percentages.
+
+#### Modify
+
+The 10,000-order modify workload confirmed the expected asymmetry between the two established modification paths.
+
+```text
+
+OrderBook::modify
+    ≈ 509.95 ms total profiled parent time
+
+modify::cancel_old_order
+    ≈ 302.70 ms
+
+modify::re_add_order
+    ≈ 156.30 ms
+
+modify::in_place
+    ≈ 0.60 ms
+```
+
+The expensive increase / priority-changing path is consistent with the established cancel-and-reinsert semantics, while the in-place path remains inexpensive.
+
+No modification semantics were changed during profiling.
+
+#### Matching — Single Level
+
+The single-level matching workload is the clearest confirmed structural hotspot.
+
+Approximately:
+
+```text
+
+OrderBook::process_order
+    ≈ 75.10 s
+
+OrderBook::cancel
+    ≈ 75.08 s
+
+OrderBook::update_shifted_indices
+    ≈ 74.97 s
+```
+
+The profile recorded roughly:
+
+```text
+
+≈ 49.995 million OrderMap updates
+
+≈ 50.005 million OrderMap finds
+```
+
+The raw vector erase itself was only approximately:
+
+```text
+
+≈ 73 ms
+```
+
+Therefore, the dominant measured cost is the explicit maintenance of `OrderMap` indices after vector elements shift.
+
+This establishes the major current matching hot path as:
+
+```text
+
+full-fill removal
+        ↓
+
+vector element shift
+        ↓
+
+shifted-index maintenance
+        ↓
+
+repeated OrderMap find/update operations
+```
+
+This cost grows with the number of elements shifted and is strongly workload-shape dependent.
+
+#### Matching — Multi Level
+
+The multi-level matching workload recorded approximately:
+
+```text
+
+OrderBook::process_order
+    ≈ 3.745 s
+
+OrderBook::update_shifted_indices
+    ≈ 3.716 s
+```
+
+The profile recorded roughly:
+
+```text
+
+≈ 2.498 million OrderMap updates
+
+≈ 2.503 million OrderMap finds
+```
+
+The much lower cost relative to the single-level workload confirms that matching performance is strongly influenced by the number of orders affected by repeated removals and shifted-index maintenance.
+
+#### Simulator ADD
+
+The simulator ADD workload established repeated price-level sorting as the dominant measured path.
+
+Approximately:
+
+```text
+
+Simulator::process_events
+    ≈ 5.840 s
+
+Simulator::process_event
+    ≈ 5.836 s
+
+ADD
+    ≈ 5.827 s
+
+ADD::process_order
+    ≈ 5.742 s
+
+OrderBook::process_order
+    ≈ 5.738 s
+
+process_order::sort
+    ≈ 5.653 s
+
+OrderBook::sort_price_levels
+    ≈ 5.648 s
+
+sort_price_levels::bids
+    ≈ 5.635 s
+```
+
+The measured behavior shows that the current simulator ADD workload repeatedly sorts growing bid-side price-level vectors during `process_order`.
+
+This sorting cost dominates the simulator ADD profile for the current workload.
+
+#### Simulator Mixed
+
+The mixed simulator workload produced the same structural result.
+
+Approximately:
+
+```text
+
+Simulator::process_events
+    ≈ 2.438 s
+
+ADD
+    ≈ 2.383 s
+
+ADD::process_order
+    ≈ 2.344 s
+
+OrderBook::process_order
+    ≈ 2.341 s
+
+process_order::sort
+    ≈ 2.301 s
+
+OrderBook::sort_price_levels
+    ≈ 2.298 s
+
+sort_price_levels::bids
+    ≈ 2.290 s
+```
+
+The cancellation portion was comparatively small in this mixed workload.
+
+The simulator profiles therefore confirm two dominant current mechanisms:
+
+```text
+
+ADD-heavy simulation
+    → repeated price-level sorting
+
+removal-heavy matching
+    → shifted-index / OrderMap maintenance
+```
+
+#### ITCH End-to-End
+
+The initial one-million-message ITCH profile recorded:
+
+```text
+
+messages read       1,000,000
+messages parsed     1,000,000
+messages ignored    1,000,000
+Add operations              0
+Reduce operations           0
+Remove operations           0
+Replace operations          0
+replay successes            0
+replay errors               0
+```
+
+The most significant measured parser / ingestion scopes were approximately:
+
+```text
+
+ITCH::end_to_end
+    ≈ 6.364 s
+
+ITCH::get_type_parser
+    ≈ 3.611 s
+
+ItchFileReader::next_message
+    ≈ 1.491 s
+
+ITCH::parse_A
+    ≈ 1.414 s
+
+ITCH::parse_D
+    ≈ 0.795 s
+
+ItchMapper::map
+    ≈ 0.376 s
+```
+
+The run did not execute `ItchReplay`, because no replay operation reached the replay layer for the selected one-million-message prefix.
+
+The measured counters establish this fact directly; no replay performance conclusion is drawn from that run.
+
+The ITCH architecture itself remains complete and the diagnostic profiling result is recorded as a workload-selection / replay-execution boundary observation rather than as an optimization result.
+
+### Benchmark Scale Observations
+
+The completed Chapter 10 baseline also established the following measured scaling behavior.
+
+Chapter 8 inventory accounting showed approximately:
+
+```text
+1M trades    → 16.84 ms
+10M trades   → 142.95 ms
+100M trades  → 1.409 s
+1B trades   → 14.152 s
+```
+
+This is approximately linear over the measured range.
+
+Chapter 9 end-to-end historical ingestion / replay measurement showed approximately:
+
+```text
+1M messages           → 1.350 s
+10M messages          → 13.921 s
+100M messages         → 137.520 s
+302,347,067 messages  → 400.130 s
+```
+
+The corresponding measured throughput remained in the same order of magnitude across these scales, with the full-file run processing approximately 755,622 messages per second.
+
+The full historical source used for this measurement contains 302,347,067 messages; this is not a synthetic 300-billion-message workload.
+
+### Current Chapter 10 Architectural Finding
+
+The completed performance phase establishes that the current architecture has two principal measured performance mechanisms:
+
+```text
+
+1. Removal-heavy workloads
+
+   → vector erasure shifts elements
+   → OrderMap must preserve physical indices
+   → shifted-index maintenance becomes dominant
+
+
+2. ADD-heavy simulation workloads
+
+   → OrderBook::process_order repeatedly sorts price levels
+   → repeated sorting dominates simulator ADD processing
+```
+
+Other measured components remain materially smaller within their respective controlled workloads.
+
+These findings are measurements of the current implementation, not evidence that the existing architecture is semantically incorrect.
+
+The core ownership model remains unchanged:
+
+```text
+
+OrderBook owns market state.
+
+PriceLevels own Orders by value.
+
+OrderMap remains an auxiliary OrderId → OrderLocation index.
+
+Matching remains price-time based.
+
+Simulator remains the synthetic event orchestration layer.
+
+ITCH replay remains historical state reconstruction.
+```
+
+No profiling result changes those invariants.
 
 ---
 
-## A32. Final Continuity Rule
+## A32. Chapter 10 Completion State
 
-The most important maintenance rule for this document is:
+Chapter 10 is considered complete for the current measurement and profiling scope.
+
+The documented state is:
 
 ```text
-DO NOT TOUCH THE EXISTING 7,808 LINES.
-APPEND NEW INFORMATION ONLY.
+
+Chapter 10 — Performance / Benchmarking / Profiling
+
+    baseline benchmark       → COMPLETE
+
+    profiling infrastructure → COMPLETE
+
+    workload profiling       → COMPLETE
+
+    hot-path identification   → COMPLETE
+
+    bottleneck confirmation   → COMPLETE
+
+    optimization             → intentionally not part of the completed
+                                profiling phase
 ```
 
-This append-only policy exists to preserve the full engineering history of the project and prevent future context compression from deleting implementation details needed for correct continuation.
+The project therefore retains the measured Chapter 10 baseline and profiling evidence as the reference point for any later performance work.
+
+---
+
+## A33. Final Continuity Rule
+
+The most important maintenance rule for this document remains:
+
+```text
+
+DO NOT TOUCH THE EXISTING ARCHITECTURAL RECORD.
+
+PRESERVE ALL EARLIER CONTENT EXACTLY.
+
+APPEND NEW VERIFIED INFORMATION ONLY.
+```
+
+The architectural history above remains the source of continuity for future technical discussions.
+
+Current physical line count: 18616
