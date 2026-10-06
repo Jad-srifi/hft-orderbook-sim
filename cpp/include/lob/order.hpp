@@ -2,8 +2,8 @@
 
 #include <types.hpp>
 
-
-struct Order {
+struct Order
+{
     OrderId id;
     Side side;
     Price price;

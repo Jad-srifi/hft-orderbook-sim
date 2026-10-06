@@ -4,13 +4,15 @@
 #include <types.hpp>
 #include <order.hpp>
 
-enum class EventType {
+enum class EventType
+{
     ADD,
     CANCEL,
     MODIFY
 };
 
-struct Event {
+struct Event
+{
     EventType type;
     Timestamp timestamp;
     SequenceNumber sequence;

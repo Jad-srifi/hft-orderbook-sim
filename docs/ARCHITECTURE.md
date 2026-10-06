@@ -1,6 +1,6 @@
 # Hybrid C++/Python Limit Order Book Simulator
 
-# Chapter 1–9 — Order Book, Matching Engine, Order Tracking, Modification, Event-Driven Simulation, Market Microstructure Metrics, Execution Analysis, Inventory/P&L & Historical ITCH Replay
+# Chapter 1–11 — Order Book, Matching Engine, Order Tracking, Modification, Event-Driven Simulation, Market Microstructure Metrics, Execution Analysis, Inventory/P&L, Historical ITCH Replay & C++ → Python Integration
 
 ## 1. Overview
 
@@ -14318,4 +14318,2141 @@ APPEND NEW VERIFIED INFORMATION ONLY.
 
 The architectural history above remains the source of continuity for future technical discussions.
 
-Current physical line count: 18616
+## Current physical line count: 18616
+
+## A34. Chapter 11 — C++ → Python Integration Completed Binding Phase
+
+Chapter 11 was introduced to expose the established C++ market-engine and historical-ITCH infrastructure to Python without rewriting the underlying C++ architecture.
+
+The central principle was:
+
+```text
+
+Existing C++ implementation
+
+        ↓
+
+Thin pybind11 binding layer
+
+        ↓
+
+Python extension module
+
+        ↓
+
+Python research code
+
+```
+
+The C++ implementation remains the authoritative implementation of:
+
+```text
+
+OrderBook
+
+Matching
+
+Order tracking
+
+Modification
+
+Synthetic event processing
+
+Market metrics
+
+Execution analysis
+
+Inventory / P&L
+
+ITCH parsing
+
+ITCH semantic mapping
+
+Historical replay
+
+```
+
+Python is an access and research layer rather than a second implementation of those mechanisms.
+
+The completed binding phase therefore did not modify the Chapters 1–10 market-state, matching, execution, inventory, or ITCH semantics.
+
+---
+
+## A35. Chapter 11 — Binding Source
+
+The binding implementation is located at:
+
+```text
+
+cpp/bindings/lob_bindings.cpp
+
+```
+
+The module is created with:
+
+```cpp
+
+PYBIND11_MODULE(lob_cpp, m)
+
+```
+
+The module name exposed to Python is:
+
+```text
+
+lob_cpp
+
+```
+
+The variable:
+
+```text
+
+m
+
+```
+
+is the pybind11 module object. All classes, enums, and functions are registered into this one Python module.
+
+Using one module object is intentional:
+
+```text
+
+lob_cpp
+   |
+   +-- Side
+   +-- Order
+   +-- Trade
+   +-- Event
+   +-- OrderBook
+   +-- Simulator
+   +-- Metrics
+   +-- Execution
+   +-- Inventory
+   +-- ITCH
+   +-- Replay
+   +-- File Reader
+
+```
+
+Different letters are not required because the bindings all belong to the same Python extension module.
+
+---
+
+## A36. Chapter 11 — C++ Core Exposure
+
+The completed binding layer exposes the main C++ core objects.
+
+### types.hpp
+
+Exposed:
+
+```text
+
+Side.BUY
+
+Side.SELL
+
+Side.NONE
+
+```
+
+Primitive C++ type aliases such as `OrderId`, `Price`, `Quantity`, and `Timestamp` remain native scalar types rather than being wrapped as separate Python classes.
+
+---
+
+### order.hpp
+
+Exposed:
+
+```text
+
+Order
+
+    id
+
+    side
+
+    price
+
+    quantity
+
+```
+
+The existing constructor is available from Python.
+
+---
+
+### trade.hpp
+
+Exposed:
+
+```text
+
+Trade
+
+    incoming_order
+
+    resting_order
+
+    price
+
+    quantity
+
+```
+
+The existing C++ trade representation is reused directly.
+
+---
+
+### event.hpp
+
+Exposed:
+
+```text
+
+EventType
+
+    ADD
+
+    CANCEL
+
+    MODIFY
+
+
+Event
+
+    type
+
+    timestamp
+
+    sequence
+
+    order
+
+    order_id
+
+    new_price
+
+    new_quantity
+
+```
+
+The binding uses the current `Event` constructor signature represented by:
+
+```text
+
+EventType
+
+Timestamp
+
+SequenceNumber
+
+Order
+
+OrderId
+
+Price
+
+Quantity
+
+```
+
+---
+
+### price_level.hpp
+
+Exposed read-only fields:
+
+```text
+
+PriceLevel
+
+    price
+
+    orders
+
+    total_quantity
+
+```
+
+The individual order vectors remain owned by the C++ price levels.
+
+The binding does not introduce a new Python-side representation of price-level ownership.
+
+---
+
+### order_book.hpp
+
+Exposed:
+
+```text
+
+OrderBook()
+
+add()
+
+cancel()
+
+best_bid()
+
+best_ask()
+
+spread()
+
+process_order()
+
+modify()
+
+bid_levels()
+
+ask_levels()
+
+```
+
+The order-book implementation remains authoritative.
+
+The following internal methods/state are deliberately not exposed:
+
+```text
+
+sort_price_levels()
+
+update_shifted_indices()
+
+find_order()
+
+bids
+
+asks
+
+order_map
+
+```
+
+In particular, `find_order()` returns a raw pointer into vector-owned order storage. It is therefore not exposed directly through the Python API because mutation of the underlying vectors can invalidate that pointer.
+
+The existing value-ownership model remains:
+
+```text
+
+OrderBook
+
+    owns PriceLevels
+
+        own Orders by value
+
+OrderMap
+
+    indexes OrderId → OrderLocation
+
+```
+
+---
+
+### simulator.hpp
+
+Exposed:
+
+```text
+
+Simulator(Cash)
+
+add_event()
+
+process_event()
+
+process_events()
+
+calculate_execution_results()
+
+get_inventory_model()
+
+```
+
+The simulator remains an orchestration layer.
+
+Its internal state is not duplicated into a Python-side simulation engine.
+
+The returned `InventoryModel&` is bound using `reference_internal`, preserving the relationship between the returned Python object and its owning `Simulator`.
+
+---
+
+### metrics.hpp
+
+Exposed:
+
+```text
+
+MarketMetrics
+
+    best_bid
+
+    best_ask
+
+    mid_price
+
+    spread
+
+    relative_spread
+
+    bid_depth
+
+    ask_depth
+
+    imbalance
+
+    trade_count
+
+    trade_volume
+
+```
+
+The metric functions are also exposed:
+
+```text
+
+calculate_best_bid()
+
+calculate_best_ask()
+
+calculate_mid_price()
+
+calculate_spread()
+
+calculate_relative_spread()
+
+calculate_bid_depth()
+
+calculate_ask_depth()
+
+calculate_imbalance()
+
+calculate_trade_count()
+
+calculate_trade_volume()
+
+calculate_metrics()
+
+```
+
+The metric layer remains read-only.
+
+---
+
+### execution.hpp
+
+Exposed:
+
+```text
+
+ExecutionResult
+
+    executed_quantity
+
+    execution_value
+
+    execution_vwap
+
+    reference_price
+
+    slippage
+
+    execution_cost
+
+    liquidity_consumed
+
+```
+
+The existing execution-analysis functions are exposed:
+
+```text
+
+group_trades_by_incoming_order()
+
+calculate_executed_quantity()
+
+calculate_executed_value()
+
+calculate_VWAP()
+
+calculate_slippage()
+
+calculate_execution_cost()
+
+calculate_liquidity_consumed()
+
+calculate_execution_result()
+
+calculate_execution_results_by_order()
+
+```
+
+The binding layer does not reimplement any execution formulas.
+
+---
+
+### inventory_model.hpp
+
+Exposed:
+
+```text
+
+InventoryModel(Cash)
+
+process_trade()
+
+get_position()
+
+get_cash()
+
+get_avg_cost()
+
+get_realized_pnl()
+
+unrealized_pnl()
+
+portfolio_value()
+
+inventory_exposure()
+
+```
+
+The stateful C++ inventory model remains the single implementation of inventory accounting.
+
+---
+
+## A37. Chapter 11 — ITCH Protocol Exposure
+
+The binding layer also exposes the existing protocol representation from:
+
+```text
+
+cpp/include/lob/itch_message.hpp
+
+```
+
+The exposed enums include:
+
+```text
+
+ItchMessageType
+
+    AddOrder
+
+    AddOrderMPID
+
+    OrderExecuted
+
+    OrderExecutedWithPrice
+
+    OrderCancel
+
+    OrderDelete
+
+    OrderReplace
+
+    StockDirectory
+
+    SystemEvent
+
+
+ParseError
+
+    UnknownMessageType
+
+    IncompleteMessage
+
+    InvalidMessageLength
+
+    MalformedMessage
+
+```
+
+The concrete ITCH message structures are exposed individually.
+
+These include:
+
+```text
+
+AddOrderMessage
+
+AddOrderMPIDMessage
+
+ExecuteMessage
+
+ExecuteWithPriceMessage
+
+CancelMessage
+
+DeleteMessage
+
+ReplaceMessage
+
+StockDirectoryMessage
+
+SystemEventMessage
+
+StockTradingActionMessage
+
+RegSHOMessage
+
+MarketParticipantPositionMessage
+
+MWCBDeclineLevelMessage
+
+MWCBStatusMessage
+
+QuotingPeriodUpdateMessage
+
+LULDAuctionCollarMessage
+
+OperationalHaltMessage
+
+TradeMessage
+
+CrossTradeMessage
+
+BrokenTradeMessage
+
+NOIIMessage
+
+RetailInterestMessage
+
+DirectListingCapitalRaiseMessage
+
+```
+
+The protocol structures remain protocol representations rather than replacements for:
+
+```text
+
+Order
+
+Trade
+
+Event
+
+ReplayOperation
+
+```
+
+This preserves the separation established in Chapter 9.
+
+---
+
+## A38. Chapter 11 — std::variant Handling
+
+The ITCH system contains two important variant aliases:
+
+```text
+
+ItchMessage
+
+ReplayOperation
+
+```
+
+These are not separately registered with `py::class_` because they are `std::variant` aliases.
+
+The binding instead exposes their concrete alternative types and includes:
+
+```cpp
+
+#include <pybind11/stl.h>
+
+```
+
+This allows pybind11's STL conversion machinery to represent the variant alternatives at the Python boundary.
+
+The same principle applies to other standard-library containers used by the exposed APIs, including:
+
+```text
+
+std::vector
+
+std::unordered_map
+
+std::array
+
+std::variant
+
+```
+
+where supported by the included pybind11 STL conversion layer.
+
+---
+
+## A39. Chapter 11 — ITCH Parser Exposure
+
+The parser functions from:
+
+```text
+
+cpp/include/lob/itch_parser.hpp
+
+```
+
+are exposed.
+
+The current public binding includes:
+
+```text
+
+read_bytes()
+
+read_be()
+
+read_side()
+
+get_type_parser()
+
+parse_A()
+
+parse_F()
+
+parse_E()
+
+parse_C()
+
+parse_X()
+
+parse_D()
+
+parse_U()
+
+parse_R()
+
+parse_S()
+
+parse_H()
+
+parse_Y()
+
+parse_L()
+
+parse_V()
+
+parse_W()
+
+parse_K()
+
+parse_J()
+
+parse_h()
+
+parse_P()
+
+parse_Q()
+
+parse_B()
+
+parse_I()
+
+parse_N()
+
+parse_O()
+
+```
+
+The helper:
+
+```text
+
+read_chars()
+
+```
+
+was intentionally not bound.
+
+The reason is that the current implementation uses the internal templated form:
+
+```text
+
+read_chars<N>(bytes, start)
+
+```
+
+while the header also contains a non-templated declaration with a different signature.
+
+The existing parser implementation itself uses the templated helper internally.
+
+Because `read_chars()` is a low-level parser implementation helper rather than a meaningful research-facing operation, the Python binding does not need to expose the conflicting declaration.
+
+No Chapter 9 parser logic was changed to solve the Python integration problem.
+
+---
+
+## A40. Chapter 11 — ITCH Mapper Exposure
+
+The mapping layer from:
+
+```text
+
+cpp/include/lob/itch_mapper.hpp
+
+```
+
+is exposed.
+
+The replay errors are:
+
+```text
+
+ReplayError
+
+    UnknownOrder
+
+    InvalidLifecycle
+
+    InvalidQuantity
+
+    IgnoredMessage
+
+```
+
+The semantic operation structures are:
+
+```text
+
+AddOperation
+
+    order_id
+
+    side
+
+    quantity
+
+    price
+
+
+ReduceOperation
+
+    order_id
+
+    quantity
+
+
+RemoveOperation
+
+    order_id
+
+
+ReplaceOperation
+
+    old_order_id
+
+    new_order_id
+
+    side
+
+    quantity
+
+    price
+
+```
+
+The public mapper is:
+
+```text
+
+ItchMapper(StockLocate)
+
+is_selected_security()
+
+map()
+
+```
+
+The private mapper helpers remain private.
+
+The Python layer therefore sees the semantic mapping interface without bypassing the mapper's internal dispatch structure.
+
+---
+
+## A41. Chapter 11 — ITCH Replay Exposure
+
+The replay layer exposes:
+
+```text
+
+ItchReplay(OrderBook&)
+
+apply()
+
+```
+
+The binding uses:
+
+```cpp
+
+py::keep_alive<1, 2>()
+
+```
+
+because `ItchReplay` stores an `OrderBook&`.
+
+The intended lifetime relationship is:
+
+```text
+
+Python OrderBook
+
+      |
+
+      v
+
+C++ OrderBook
+
+      ↑
+
+      |
+
+ItchReplay
+
+```
+
+The replay object therefore remains tied to the lifetime of the `OrderBook` supplied to it.
+
+The private:
+
+```text
+
+apply_add()
+
+apply_reduce()
+
+apply_remove()
+
+apply_replace()
+
+```
+
+functions remain implementation details.
+
+The historical replay architecture remains unchanged:
+
+```text
+
+ITCH Message
+
+    ↓
+
+Mapper
+
+    ↓
+
+ReplayOperation
+
+    ↓
+
+ItchReplay
+
+    ↓
+
+Existing OrderBook
+
+```
+
+There is still no automatic routing of historical execution messages through the synthetic matching engine.
+
+---
+
+## A42. Chapter 11 — ITCH File Reader Exposure
+
+The file reader from:
+
+```text
+
+cpp/include/lob/itch_file_reader.hpp
+
+```
+
+is exposed.
+
+The error type is:
+
+```text
+
+FileReaderError
+
+    CanNotOpenFile
+
+    IncompleteLengthField
+
+    TruncatedPayload
+
+    ReadFailure
+
+```
+
+The end-of-file marker is exposed as:
+
+```text
+
+EndOfFile
+
+```
+
+The reader interface is:
+
+```text
+
+ItchFileReader(std::string)
+
+next_message()
+
+```
+
+Private state such as:
+
+```text
+
+file
+
+finished
+
+open_failed
+
+```
+
+is not exposed.
+
+---
+
+## A43. Chapter 11 — Python Extension Build
+
+The binding source was compiled into a Python extension named:
+
+```text
+
+lob_cpp
+
+```
+
+The generated Python extension is a platform-specific:
+
+```text
+
+.pyd
+
+```
+
+module.
+
+The build environment was verified as the MSYS2 UCRT64 environment.
+
+The Python installation was verified as:
+
+```text
+
+Python 3.14.7
+
+C:/msys64/ucrt64
+
+MINGW GCC UCRT 16.2.0 64 bit
+
+```
+
+The UCRT64 Python import library was verified as:
+
+```text
+
+/ucrt64/lib/libpython3.14.dll.a
+
+```
+
+The extension build therefore links against:
+
+```text
+
+-L/ucrt64/lib
+
+-lpython3.14
+
+```
+
+The required C++ implementation files include the core and ITCH implementation units together with the profiler implementation required by the existing profiling instrumentation:
+
+```text
+
+cpp/src/order_book.cpp
+
+cpp/src/order_map.cpp
+
+cpp/src/execution.cpp
+
+cpp/src/inventory_model.cpp
+
+cpp/src/simulator.cpp
+
+cpp/src/metrics.cpp
+
+cpp/src/itch_parser.cpp
+
+cpp/src/itch_mapper.cpp
+
+cpp/src/itch_replay.cpp
+
+cpp/src/itch_file_reader.cpp
+
+cpp/src/profile.cpp
+
+```
+
+Benchmark-only and sample-tool implementation files are not required by the Python extension:
+
+```text
+
+cpp/src/benchmark.cpp
+
+cpp/src/itch_sample_reader.cpp
+
+```
+
+The profiling source is required because the already-established ITCH code contains profiling instrumentation that references:
+
+```text
+
+Profiler::instance()
+
+ProfileScope::ProfileScope()
+
+ProfileScope::~ProfileScope()
+
+```
+
+These symbols are implemented by `profile.cpp`.
+
+---
+
+## A44. Chapter 11 — Build Debugging and Resolved Linker Issues
+
+The first extension link attempt exposed two categories of linker failures.
+
+### Python runtime symbols
+
+Initial errors included:
+
+```text
+
+undefined reference to __imp__Py_NoneStruct
+
+undefined reference to PyObject_GenericGetDict
+
+undefined reference to PyObject_GenericSetDict
+
+```
+
+These indicated that Python headers were available but the Python import library was not linked.
+
+The build was corrected by linking:
+
+```text
+
+-L/ucrt64/lib
+
+-lpython3.14
+
+```
+
+---
+
+### read_chars symbol
+
+The first link also produced:
+
+```text
+
+undefined reference to read_chars(...)
+```
+
+Inspection of the actual project showed that the header declaration and implementation did not represent the same function signature.
+
+The implementation uses the templated form internally, while the non-templated header declaration was the symbol requested by the binding.
+
+The low-level `read_chars` binding was therefore removed rather than altering the established parser implementation.
+
+---
+
+### Profiling symbols
+
+After the Python library issue was fixed, the linker reported:
+
+```text
+
+undefined reference to Profiler::instance()
+
+undefined reference to ProfileScope::ProfileScope(...)
+
+undefined reference to ProfileScope::~ProfileScope()
+
+```
+
+The dependency was traced to profiling instrumentation already present in the ITCH implementation.
+
+Adding:
+
+```text
+
+cpp/src/profile.cpp
+
+```
+
+to the extension link resolved this dependency.
+
+These were build/link integration issues rather than failures of the underlying Chapter 9 replay design.
+
+---
+
+## A45. Chapter 11 — Core Binding Smoke Test
+
+The Python smoke-test file is:
+
+```text
+
+tests/python/test_bindings.py
+
+```
+
+Its purpose is to verify that Python can import the extension and interact with the actual C++ implementation.
+
+The test covers:
+
+```text
+
+module import
+
+Side
+
+Order
+
+Trade
+
+OrderBook
+
+PriceLevel
+
+MarketMetrics
+
+InventoryModel
+
+Simulator
+
+```
+
+The test also performs real C++ operations through Python.
+
+The central operation is:
+
+```text
+
+Python Order
+
+    ↓
+
+lob_cpp.Order
+
+    ↓
+
+C++ OrderBook.add()
+
+    ↓
+
+C++ OrderBook.best_bid()
+
+    ↓
+
+Python assertion
+
+```
+
+Additional checks cover:
+
+```text
+
+trade construction
+
+bid-level access
+
+metric calculations
+
+inventory initialization
+
+simulator initialization
+
+```
+
+The completed result is:
+
+```text
+
+All binding smoke tests passed.
+
+```
+
+This establishes that the Python module is not merely importable; the exposed C++ objects and selected methods are callable and produce expected results.
+
+---
+
+## A46. Chapter 11 — Python Extension Import Validation
+
+After compilation, the generated `.pyd` module was successfully discovered by Python.
+
+The import check succeeded:
+
+```text
+
+lob_cpp imported successfully
+
+```
+
+This proves the basic binary-extension boundary works:
+
+```text
+
+C++ source
+
+    ↓
+
+g++
+
+    ↓
+
+lob_cpp.pyd
+
+    ↓
+
+Python import machinery
+
+    ↓
+
+import lob_cpp
+
+```
+
+The successful import was achieved before the higher-level Python research layer was introduced.
+
+---
+
+## A47. Chapter 11 — ITCH Binding Test
+
+The dedicated ITCH integration test is:
+
+```text
+
+tests/python/test_itch_bindings.py
+
+```
+
+Its purpose is to validate the Python boundary for the existing historical-data pipeline.
+
+The intended validation flow is:
+
+```text
+
+ITCH File
+
+    ↓
+
+ItchFileReader
+
+    ↓
+
+raw message bytes
+
+    ↓
+
+get_type_parser()
+
+    ↓
+
+ITCH message object
+
+    ↓
+
+ItchMapper
+
+    ↓
+
+ReplayOperation
+
+    ↓
+
+ItchReplay
+
+    ↓
+
+OrderBook
+
+```
+
+The test specifically aims to exercise a real message from:
+
+```text
+
+data/itch/2019-10-18/decompressed/S101819-v50.txt
+
+```
+
+rather than relying only on fabricated Python objects.
+
+This creates a stronger integration test because the Python boundary is exercised against the same historical-data pipeline established in Chapter 9.
+
+Current status at the time of this update:
+
+```text
+
+ITCH binding test file created      → COMPLETE
+
+ITCH binding test execution         → PENDING FINAL RUN
+
+```
+
+The Chapter 11 binding implementation should therefore not be described as fully end-to-end validated until this dedicated ITCH test passes.
+
+---
+
+## A48. Chapter 11 — What Was Deliberately Not Changed
+
+The Python integration phase did not introduce any new ownership architecture.
+
+The following rules remain unchanged:
+
+```text
+
+OrderBook owns orders through PriceLevel vectors.
+
+PriceLevel owns Orders by value.
+
+OrderMap remains OrderId → OrderLocation.
+
+No Order* ownership map was introduced.
+
+No alternate order-storage structure was introduced.
+
+No matching logic was rewritten.
+
+No FIFO rule was changed.
+
+No simulator event semantics were changed.
+
+No execution formula was duplicated.
+
+No inventory accounting implementation was duplicated.
+
+No ITCH replay operation was routed through the synthetic Simulator.
+
+No C++ core was rewritten merely to make Python integration convenient.
+
+```
+
+Python is therefore an interface layer over the trusted C++ implementation.
+
+---
+
+## A49. Chapter 11 — Current Architecture After Python Integration
+
+The architecture now contains two implementation layers around the same C++ market-state core.
+
+```text
+
+                    INPUTS
+
+              +-------+-------+
+              |               |
+              v               v
+
+       Synthetic Events    Historical ITCH
+              |               |
+              v               v
+          Simulator        Parser
+              |               |
+              v           ItchMessage
+          OrderBook            |
+              |             Mapper
+              v                |
+        Matching Engine   ReplayOperation
+              |                |
+              v             ItchReplay
+            Trade               |
+              |                 |
+       +------+------+           |
+       |      |      |           |
+       v      v      v           |
+    Metrics Execution Inventory  |
+              |                   |
+              +---------+---------+
+                        |
+                        v
+                  Existing C++ State
+                        |
+                        v
+                  pybind11 layer
+                        |
+                        v
+                   lob_cpp.pyd
+                        |
+                        v
+                     Python
+                        |
+              +---------+---------+
+              |         |         |
+              v         v         v
+          Analysis  Statistics  Research
+              |         |         |
+              +---------+---------+
+                        |
+                        v
+                Datasets / Results
+
+```
+
+The key boundary is:
+
+```text
+
+C++ = authoritative engine / replay implementation
+
+Python = research / analysis interface
+
+```
+
+---
+
+## A50. Chapter 11 — File Inventory
+
+The Chapter 11 files created or modified for the integration phase are:
+
+```text
+
+MODIFIED
+
+cpp/bindings/lob_bindings.cpp
+
+
+CREATED
+
+tests/python/test_bindings.py
+
+tests/python/test_itch_bindings.py
+
+
+EXISTING DEPENDENCIES USED BY THE EXTENSION
+
+cpp/src/order_book.cpp
+
+cpp/src/order_map.cpp
+
+cpp/src/execution.cpp
+
+cpp/src/inventory_model.cpp
+
+cpp/src/simulator.cpp
+
+cpp/src/metrics.cpp
+
+cpp/src/itch_parser.cpp
+
+cpp/src/itch_mapper.cpp
+
+cpp/src/itch_replay.cpp
+
+cpp/src/itch_file_reader.cpp
+
+cpp/src/profile.cpp
+
+```
+
+No separate Python research package has been introduced yet.
+
+That comes after the raw C++ extension and its binding tests are validated.
+
+---
+
+## A51. Chapter 11 — Completion Checklist
+
+```text
+
+Chapter 11 — C++ → Python Integration
+
+    pybind11 environment
+        → COMPLETE
+
+    UCRT64 Python environment
+        → COMPLETE
+
+    lob_bindings.cpp
+        → COMPLETE
+
+    core class bindings
+        → COMPLETE
+
+    metrics bindings
+        → COMPLETE
+
+    execution bindings
+        → COMPLETE
+
+    inventory bindings
+        → COMPLETE
+
+    ITCH message bindings
+        → COMPLETE
+
+    parser bindings
+        → COMPLETE
+
+    mapper bindings
+        → COMPLETE
+
+    replay bindings
+        → COMPLETE
+
+    file-reader bindings
+        → COMPLETE
+
+    Python extension compilation
+        → COMPLETE
+
+    lob_cpp import validation
+        → COMPLETE
+
+    core Python smoke test
+        → COMPLETE
+
+    ITCH Python integration test
+        → PENDING FINAL RUN
+
+```
+
+Therefore the current chapter state is:
+
+```text
+
+Chapter 11
+C++ → Python Integration
+
+        binding implementation       ✅ COMPLETE
+        extension build              ✅ COMPLETE
+        Python import                ✅ COMPLETE
+        core smoke tests              ✅ COMPLETE
+        ITCH end-to-end test          ⬜ PENDING
+```
+
+---
+
+## A52. Chapter 11 — Completion Condition
+
+Chapter 11 should be marked fully complete only after:
+
+```text
+
+tests/python/test_bindings.py
+
+        AND
+
+tests/python/test_itch_bindings.py
+
+```
+
+both pass successfully.
+
+At that point the complete verified boundary becomes:
+
+```text
+
+C++ Core
+   ↓
+pybind11
+   ↓
+lob_cpp.pyd
+   ↓
+Python
+   ↓
+Core + ITCH replay access
+
+```
+
+The next work should then move upward rather than downward into another C++ rewrite.
+
+---
+
+# Part XXXIV — Python Research Layer Roadmap
+
+## 253. Chapter 12 — Python Research Infrastructure
+
+After Chapter 11 is fully validated, the next chapter should focus on making the exposed engine practical for quantitative research.
+
+The goal is not to add another matching engine.
+
+The goal is to build a clean research layer over:
+
+```text
+
+lob_cpp
+
+```
+
+The conceptual structure becomes:
+
+```text
+
+Python Research Code
+
+        ↓
+
+Python Research API
+
+        ↓
+
+lob_cpp
+
+        ↓
+
+C++ Engine / Historical Replay
+
+```
+
+---
+
+## 254. Chapter 12 — Research Package Structure
+
+The planned Python layer is:
+
+```text
+
+python/
+
+    __init__.py
+
+    lob.py
+
+    itch.py
+
+    metrics.py
+
+    execution.py
+
+    inventory.py
+
+```
+
+The first versions should be thin wrappers.
+
+They should not duplicate the formulas or state transitions already implemented in C++.
+
+---
+
+## 255. Chapter 12 — Historical Replay Interface
+
+A high-level Python replay interface should eventually hide the low-level sequence:
+
+```text
+
+ItchFileReader
+
+    ↓
+
+get_type_parser()
+
+    ↓
+
+ItchMapper
+
+    ↓
+
+ItchReplay
+
+```
+
+from normal research code.
+
+The desired conceptual interface is closer to:
+
+```text
+
+Python
+
+    ↓
+
+replay historical file
+
+    ↓
+
+obtain reconstructed book observations
+
+```
+
+while still using the existing C++ implementation underneath.
+
+---
+
+## 256. Chapter 12 — Research Observations
+
+Python should eventually make it straightforward to extract:
+
+```text
+
+timestamp
+
+best bid
+
+best ask
+
+mid-price
+
+spread
+
+relative spread
+
+bid depth
+
+ask depth
+
+imbalance
+
+trade activity
+
+```
+
+from simulated or reconstructed market state.
+
+The output should be suitable for statistical analysis and dataset generation.
+
+---
+
+## 257. Chapter 12 — Feature Generation
+
+The research layer can then construct features such as:
+
+```text
+
+mid-price returns
+
+short-horizon returns
+
+spread
+
+relative spread
+
+depth
+
+order-book imbalance
+
+trade volume
+
+trade intensity
+
+liquidity consumption
+
+execution cost
+
+inventory exposure
+
+```
+
+Additional multi-level microstructure features can be introduced only when there is a research question that requires them.
+
+---
+
+## 258. Chapter 12 — Dataset Pipeline
+
+The intended research-data flow is:
+
+```text
+
+Historical ITCH
+
+        ↓
+
+C++ Reconstruction
+
+        ↓
+
+Python Extraction
+
+        ↓
+
+Feature Generation
+
+        ↓
+
+Research Dataset
+
+        ↓
+
+Statistical Analysis
+
+```
+
+The resulting datasets should be reproducible from explicit inputs and parameters.
+
+---
+
+## 259. Chapter 12 — Research Experiments
+
+The experiment layer should record:
+
+```text
+
+dataset
+
+date / instrument scope
+
+parameters
+
+feature definitions
+
+target definition
+
+training period
+
+test period
+
+model / statistical method
+
+metrics
+
+results
+
+failure modes
+
+```
+
+The emphasis should remain on reproducibility and out-of-sample evaluation.
+
+---
+
+## 260. Chapter 12 — Visualization
+
+Python will be responsible for visualization of:
+
+```text
+
+mid-price
+
+spread
+
+depth
+
+imbalance
+
+trade activity
+
+execution cost
+
+inventory
+
+P&L
+
+```
+
+The C++ engine remains responsible for high-performance state processing.
+
+Python handles exploration and presentation.
+
+---
+
+## 261. Chapter 13 — Microstructure Research
+
+Only after the research layer is stable should the project move into empirical microstructure questions.
+
+Potential research directions include:
+
+```text
+
+Does order-book imbalance predict short-horizon returns?
+
+How does spread relate to short-term price movement?
+
+How does liquidity depth change around large trades?
+
+How quickly does the order book recover after liquidity consumption?
+
+How does execution cost depend on available depth?
+
+```
+
+The research workflow becomes:
+
+```text
+
+Historical Data
+
+      ↓
+
+ITCH Reconstruction
+
+      ↓
+
+Book-State Observations
+
+      ↓
+
+Feature Engineering
+
+      ↓
+
+Hypothesis
+
+      ↓
+
+Train / Test Separation
+
+      ↓
+
+Out-of-Sample Evaluation
+
+      ↓
+
+Parameter Stability
+
+      ↓
+
+Failure-Mode Analysis
+
+      ↓
+
+Research Conclusion
+
+```
+
+---
+
+## A53. Updated Project State
+
+The current verified progression is:
+
+```text
+
+Chapter 1  — Core Order Book                         ✅ COMPLETE
+
+Chapter 2  — Matching Engine                         ✅ COMPLETE
+
+Chapter 3  — Order Tracking                          ✅ COMPLETE
+
+Chapter 4  — Modification / Replace                  ✅ COMPLETE
+
+Chapter 5  — Event-Driven Simulation                 ✅ COMPLETE
+
+Chapter 6  — Market Microstructure Metrics           ✅ COMPLETE
+
+Chapter 7  — Execution Analysis                      ✅ COMPLETE
+
+Chapter 8  — Inventory / P&L / Risk Accounting       ✅ COMPLETE
+
+Chapter 9  — Historical Nasdaq ITCH Replay           ✅ COMPLETE
+
+Chapter 10 — Performance / Benchmarking / Profiling  ✅ COMPLETE
+
+Chapter 11 — C++ → Python Integration                🟨 BINDINGS COMPLETE
+                                                          ITCH TEST PENDING
+
+Chapter 12 — Python Research Infrastructure           ⬜ NEXT
+
+Chapter 13 — Empirical Microstructure Research       ⬜ FUTURE
+
+```
+
+The next immediate task remains:
+
+```text
+
+Run:
+
+tests/python/test_itch_bindings.py
+
+```
+
+Once that passes, Chapter 11 can be marked fully complete and the project can move to Chapter 12.
+
+---
+
+## A54. Updated Engineering Principle
+
+The project has now crossed an important architectural boundary.
+
+Earlier chapters established:
+
+```text
+
+correctness
+
+architecture
+
+invariants
+
+tests
+
+historical reconstruction
+
+measurement
+
+profiling
+
+```
+
+Chapter 11 establishes:
+
+```text
+
+C++ engine
+
+        ↓
+
+Python access
+
+```
+
+The next development should therefore focus on **using the engine to generate reproducible quantitative evidence**, not continuously adding infrastructure without a research purpose.
+
+The guiding progression remains:
+
+```text
+
+correctness
+
+    ↓
+
+architecture
+
+    ↓
+
+invariants
+
+    ↓
+
+tests
+
+    ↓
+
+realistic data
+
+    ↓
+
+measurement
+
+    ↓
+
+profiling
+
+    ↓
+
+Python research interface
+
+    ↓
+
+datasets
+
+    ↓
+
+hypotheses
+
+    ↓
+
+out-of-sample research
+
+```
+
+The C++ engine is now sufficiently integrated for the research layer to build on it without altering its established market-state semantics.

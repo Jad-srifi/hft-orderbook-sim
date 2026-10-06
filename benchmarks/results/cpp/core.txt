@@ -1,0 +1,118 @@
+# C++ BASELINE BENCHMARK RESULTS
+
+Benchmark type:
+Clean C++ baseline — NO profiling instrumentation
+
+Test:
+Ch1–5 Core Market Engine
+
+Toolchain:
+Windows
+MSYS2 UCRT64
+C++17
+g++
+-Wall -Wextra -pedantic
+
+Benchmark workloads:
+OrderBook::add
+OrderBook::find_order
+OrderBook::best_bid
+OrderBook::best_ask
+OrderBook::cancel+restore
+OrderBook::modify pair
+single-level matching
+multi-level matching
+Simulator ADD
+Simulator mixed
+
+---
+
+## 100-OPERATION / SMALL TIER
+
+Benchmark                  Ops     Min(ns)    Median(ns)   Max(ns)     ns/op       ops/sec
+
+OrderBook::add             100      142300       167200      222700      1672.00    598086.12
+find_order                   1        2100         2150        2200      2150.00    465116.28
+best_bid                     1        1000         1000        1100      1000.00   1000000.00
+best_ask                     1        1000         1000        1100      1000.00   1000000.00
+cancel+restore             200     1112200      1235400      1845300      6177.00    161890.89
+modify pair                200     1040600      1054150      1691400      5270.75    189726.32
+single-level matching      100     1265900      1384250      1760200     13842.50     72241.29
+multi-level matching       100      151400       161700       227900      1617.00    618429.19
+Simulator ADD              200     3645600      4081400      4506200     20407.00     49002.79
+Simulator mixed            200     1340600      1417950      2381500      7089.75    141048.70
+
+---
+
+## 1,000-TIER
+
+Benchmark                  Ops     Min(ns)    Median(ns)   Max(ns)     ns/op       ops/sec
+
+OrderBook::add           1,000     5371800      9801650     12008200      9801.65    102023.64
+find_order                   1       19300        19700        19800     19700.00     50761.42
+best_bid                     1       16600        17000        17900     17000.00     58823.53
+best_ask                     1       12400        13200        14800     13200.00     75757.58
+cancel+restore           2,000    88885500     90094750    102583300     45047.38     22198.85
+modify pair              2,000    88558800     89246200     90518400     44623.10     22409.92
+single-level matching    1,000   115302200    117656750    119490000    117656.75      8499.30
+multi-level matching     1,000     6425400      6634450      7332800      6634.45    150728.39
+Simulator ADD            2,000   667688600    685164150    724213200    342582.08      2919.01
+Simulator mixed          2,000   278182700    280767300    303808500    140383.65      7123.34
+
+---
+
+## 10,000-TIER
+
+Benchmark                  Ops     Min(ns)    Median(ns)   Max(ns)     ns/op       ops/sec
+
+OrderBook::add          10,000   392100400    394507500    428750200     39450.75     25348.06
+find_order                   1      167200       167600       168100    167600.00      5966.59
+best_bid                     1       83000        83050       110500     83050.00     12040.94
+best_ask                     1       80800        81100        81300     81100.00     12330.46
+cancel+restore          20,000  8801151000   8836952000   9169898300    441847.60      2263.22
+modify pair             20,000  8758851900   8803231550   9533606000    440161.58      2271.89
+single-level matching   10,000 11690653800  11733402500  11943593300   1173340.25       852.27
+multi-level matching    10,000   583214800    584981150    590169700     58498.11     17094.57
+Simulator ADD           20,000 89327986000  89543655200  89905338500   4477182.76       223.35
+Simulator mixed         20,000 38611044500  38678273100  41013078600   1933913.66       517.09
+
+---
+
+## 100,000-TIER
+
+Only the first four workloads completed as actual measurements under the
+original repeated-run policy. The remaining 100k workloads were not run.
+
+Benchmark                  Ops     Min(ns)       Median(ns)      Max(ns)       ns/op        ops/sec
+
+OrderBook::add          100,000  38483471000   38751535850   41100004100    387515.36       2580.54
+find_order                    1      1671400       1673150       1799700   1673150.00        597.68
+best_bid                      1       828900        829100        994300    829100.00       1206.13
+best_ask                      1       808200        811550        811700    811550.00       1232.21
+
+---
+
+## 100,000-TIER ESTIMATES
+
+These are ESTIMATES ONLY, not measurements.
+
+cancel+restore          ≈ 866.8 s
+modify pair             ≈ 868.3 s
+single-level matching   ≈ 1170.1 s
+multi-level matching    ≈ 51.6 s
+Simulator ADD           ≈ 11702 s
+Simulator mixed         ≈ 5328 s
+
+---
+
+## BASELINE OBSERVATION
+
+The measured OrderBook::add workload increased from:
+
+10,000 adds  → 394.508 ms
+100,000 adds → 38.752 s
+
+The expensive cancellation, modification, matching, and simulator workloads
+were not completed at 100k because projected runtime became impractical.
+
+The estimates above must never be presented as measured benchmark results.

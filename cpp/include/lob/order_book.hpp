@@ -6,8 +6,8 @@
 #include <trade.hpp>
 #include <vector>
 
-
-struct OrderBook {
+struct OrderBook
+{
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
 
@@ -19,13 +19,13 @@ struct OrderBook {
 
     void update_shifted_indices(Side side, Price price, std::size_t erased_index);
 
-    const std::vector<PriceLevel>& bid_levels() const;
+    const std::vector<PriceLevel> &bid_levels() const;
 
-    const std::vector<PriceLevel>& ask_levels() const;
+    const std::vector<PriceLevel> &ask_levels() const;
 
     Price best_bid() const;
-    
-    Price best_ask() const; 
+
+    Price best_ask() const;
 
     Price spread() const;
 
@@ -33,7 +33,7 @@ struct OrderBook {
 
     void sort_price_levels();
 
-    Order* find_order(OrderId order_id);
+    Order *find_order(OrderId order_id);
 
     bool modify(OrderId order_id, Price new_price, Quantity new_quantity);
 };

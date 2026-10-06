@@ -4,30 +4,35 @@
 #include <variant>
 #include <itch_message.hpp>
 
-enum ReplayError{
+enum ReplayError
+{
     UnknownOrder,
     InvalidLifecycle,
     InvalidQuantity,
     IgnoredMessage
 };
 
-struct AddOperation {
+struct AddOperation
+{
     OrderId order_id;
     Side side;
     Quantity quantity;
     Price price;
 };
 
-struct ReduceOperation {
+struct ReduceOperation
+{
     OrderId order_id;
     Quantity quantity;
 };
 
-struct RemoveOperation {
+struct RemoveOperation
+{
     OrderId order_id;
 };
 
-struct ReplaceOperation {
+struct ReplaceOperation
+{
     OrderId old_order_id;
     OrderId new_order_id;
     Side side;
@@ -37,28 +42,29 @@ struct ReplaceOperation {
 
 using ReplayOperation = std::variant<AddOperation, ReduceOperation, RemoveOperation, ReplaceOperation>;
 
-class ItchMapper{
-    private:
-        StockLocate selected_stock_locate;
+class ItchMapper
+{
+private:
+    StockLocate selected_stock_locate;
 
-        std::variant<ReplayOperation, ReplayError> map_add(const AddOrderMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_add(const AddOrderMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_add_mpid(const AddOrderMPIDMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_add_mpid(const AddOrderMPIDMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_execute(const ExecuteMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_execute(const ExecuteMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_execute_with_price(const ExecuteWithPriceMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_execute_with_price(const ExecuteWithPriceMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_cancel(const CancelMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_cancel(const CancelMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_delete(const DeleteMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_delete(const DeleteMessage &message);
 
-        std::variant<ReplayOperation, ReplayError> map_replace(const ReplaceMessage& message);
+    std::variant<ReplayOperation, ReplayError> map_replace(const ReplaceMessage &message);
 
-    public:
-        ItchMapper(StockLocate selected_stock_locate);
+public:
+    ItchMapper(StockLocate selected_stock_locate);
 
-        bool is_selected_security(StockLocate stock_locate);
+    bool is_selected_security(StockLocate stock_locate);
 
-        std::variant<ReplayOperation, ReplayError> map(const ItchMessage& message);
+    std::variant<ReplayOperation, ReplayError> map(const ItchMessage &message);
 };

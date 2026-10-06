@@ -8,11 +8,12 @@
 #include <trade.hpp>
 #include <inventory_model.hpp>
 
-struct Simulator {
+struct Simulator
+{
     Simulator(Cash initial_cash);
 
     OrderBook order_book;
-    
+
     Timestamp current_time = 0;
 
     SequenceNumber last_sequence = 0;
@@ -29,11 +30,11 @@ struct Simulator {
 
     void add_event(Event event);
 
-    void process_event(const Event& event);
+    void process_event(const Event &event);
 
     void process_events();
 
     ExecutionResultsByOrder calculate_execution_results();
 
-    InventoryModel& get_inventory_model();
+    InventoryModel &get_inventory_model();
 };

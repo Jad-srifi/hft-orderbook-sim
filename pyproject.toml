@@ -1,0 +1,21 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid-lob-simulator"
+version = "0.1.0"
+description = "Hybrid C++/Python limit order book simulator and quantitative research infrastructure"
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests/python",
+]
+python_files = [
+    "test_*.py",
+]

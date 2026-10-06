@@ -1,0 +1,91 @@
+# C++ BASELINE BENCHMARK RESULTS
+
+Benchmark type:
+Clean C++ baseline — NO profiling instrumentation
+
+Test:
+Ch6–7 Market Analysis / Execution
+
+Toolchain:
+Windows
+MSYS2 UCRT64
+C++17
+g++
+-Wall -Wextra -pedantic
+
+---
+
+## CHAPTER 6 — MARKET METRICS
+
+Measured workload:
+1,000,000 operations
+
+Minimum:
+14,855,200 ns
+
+Median:
+14,933,000 ns
+
+Maximum:
+15,240,300 ns
+
+Median time:
+14.933 ms
+
+Median ns/op:
+14.93
+
+Median throughput:
+66,965,780.49 ops/sec
+
+---
+
+## CHAPTER 7 — EXECUTION ANALYSIS
+
+Measured workload:
+1,000,000 operations
+
+Minimum:
+277,546,500 ns
+
+Median:
+306,000,500 ns
+
+Maximum:
+312,983,600 ns
+
+Median time:
+306.0005 ms
+
+Median ns/op:
+306.00
+
+Median throughput:
+3,267,968.52 ops/sec
+
+---
+
+## HIGH-SCALE PLANNING TIERS
+
+The intended higher-scale design was:
+
+1M
+5M
+10M
+25M
+
+Only the 1M tier was actually measured.
+
+Approximate linear projections from the 1M result:
+
+Ch6 Metrics:
+5M   ≈ 74.7 ms
+10M  ≈ 149.3 ms
+25M  ≈ 373.3 ms
+
+Ch7 Execution:
+5M   ≈ 1.53 s
+10M  ≈ 3.06 s
+25M  ≈ 7.65 s
+
+These are PROJECTIONS, not measurements.

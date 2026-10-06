@@ -5,7 +5,8 @@
 #include <vector>
 #include <unordered_map>
 
-struct ExecutionResult {
+struct ExecutionResult
+{
     Quantity executed_quantity;
 
     ExecutionValue execution_value;
@@ -29,8 +30,7 @@ using ReferencePricesByOrder = std::unordered_map<OrderId, MidPrice>;
 
 using ExecutionResultsByOrder = std::unordered_map<OrderId, ExecutionResult>;
 
-
-TradesByIncomingOrder group_trades_by_incoming_order(const std::vector<Trade>& trades);
+TradesByIncomingOrder group_trades_by_incoming_order(const std::vector<Trade> &trades);
 
 Quantity calculate_executed_quantity(std::vector<Trade> trades);
 

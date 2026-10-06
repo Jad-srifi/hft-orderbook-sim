@@ -1,0 +1,136 @@
+# C++ BASELINE BENCHMARK RESULTS
+
+Benchmark type:
+Clean C++ baseline — NO profiling instrumentation
+
+Test:
+Ch8–9 Accounting / Historical Replay
+
+Toolchain:
+Windows
+MSYS2 UCRT64
+C++17
+g++
+-Wall -Wextra -pedantic
+
+---
+
+## CHAPTER 8 — INVENTORY / P&L
+
+Workload:
+InventoryModel::process_trade()
+
+1,000,000 trades
+Median: 16,835,500 ns
+Median time: 16.836 ms
+ns/op: 16.84
+Throughput: 59,398,295.27 trades/sec
+
+10,000,000 trades
+Median: 142,950,500 ns
+Median time: 142.951 ms
+ns/op: 14.30
+Throughput: 69,954,284.87 trades/sec
+
+100,000,000 trades
+Median: 1,408,595,850 ns
+Median time: 1.409 s
+ns/op: 14.09
+Throughput: 70,992,683.96 trades/sec
+
+1,000,000,000 trades
+Median: 14,151,828,400 ns
+Median time: 14.152 s
+ns/op: 14.15
+Throughput: 70,662,247.43 trades/sec
+
+Observation:
+The measured inventory workload scales approximately linearly over
+1M → 1B trades, stabilizing around 14–16 ns/trade and ~70M trades/sec.
+
+---
+
+## CHAPTER 9 — HISTORICAL ITCH
+
+Protocol:
+Nasdaq TotalView-ITCH 5.0
+
+Date:
+2019-10-18
+
+Input:
+data/itch/2019-10-18/raw/decompressed/S101819-v50.txt
+
+Selected Stock Locate:
+123
+
+1,000,000 messages
+Median time: 1.3501531 s
+ns/message: 1,350.15
+Throughput: 740,656.74 messages/sec
+
+10,000,000 messages
+Median time: 13.9211731 s
+ns/message: 1,392.12
+Throughput: 718,330.27 messages/sec
+
+100,000,000 messages
+Median time: 137.52039065 s
+ns/message: 1,375.20
+Throughput: 727,164.89 messages/sec
+
+302,347,067 messages
+Median time: 400.1298481 s
+Elapsed: 6 min 40.130 s
+ns/message: 1,323.41
+Throughput: 755,622.38 messages/sec
+
+Observation:
+The historical ITCH workload scales approximately linearly over the
+measured prefixes.
+
+The maximum measured workload is 302,347,067 messages.
+This is approximately 302 million messages, not 300 billion.
+
+---
+
+## ITCH REPLAY VALIDATION
+
+The Chapter 9 replay implementation is working.
+
+The real-data pipeline has been exercised through:
+
+ITCH file
+→ ItchFileReader
+→ parser
+→ mapper
+→ ReplayOperation
+→ ItchReplay
+→ OrderBook
+
+The diagnostic sample subsystem also successfully generated frozen .bin
+samples from real ITCH data, and the samples could be reread with the same
+message/operation classifications.
+
+The separate profiling run of the first 1,000,000 raw messages produced:
+messages read = 1,000,000
+parsed = 1,000,000
+ignored = 1,000,000
+replay operations = 0
+
+That profiling result was a workload-prefix issue, not evidence of an
+ItchReplay correctness failure. It must not be confused with the clean
+historical benchmark above.
+
+---
+
+## STATUS
+
+Chapter 8 benchmark:
+COMPLETE
+
+Chapter 9 historical benchmark:
+COMPLETE
+
+Chapter 9 replay implementation:
+WORKING
