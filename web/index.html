@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101522" />
+  <title>Hybrid LOB Simulator · Research Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#overview" aria-label="Hybrid LOB Simulator overview">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span class="brand-copy"><strong>LOB LAB</strong><small>HYBRID SIMULATOR</small></span>
+      </a>
+
+      <div class="side-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <a class="nav-link active" href="#overview"><span class="nav-icon">◈</span> Overview</a>
+        <a class="nav-link" href="#roadmap"><span class="nav-icon">▦</span> Completion roadmap</a>
+        <a class="nav-link" href="#examples"><span class="nav-icon">⌘</span> Examples</a>
+        <a class="nav-link" href="#commands"><span class="nav-icon">›_</span> Commands</a>
+        <a class="nav-link" href="#architecture"><span class="nav-icon">⌘</span> Architecture</a>
+      </nav>
+
+      <div class="side-label repo-label">PROJECT MAP</div>
+      <div class="file-tree" aria-label="Suggested project structure">
+        <div class="tree-row folder">▾ <span>cpp/</span></div>
+        <div class="tree-row child">├─ include/</div>
+        <div class="tree-row child">└─ src/</div>
+        <div class="tree-row folder">▾ <span>python/</span></div>
+        <div class="tree-row child">├─ backtests/</div>
+        <div class="tree-row child">├─ research/</div>
+        <div class="tree-row child">└─ plots/</div>
+        <div class="tree-row folder">▾ <span>examples/</span></div>
+        <div class="tree-row child selected">├─ basic_simulation.py</div>
+        <div class="tree-row child">├─ historical_replay.py</div>
+        <div class="tree-row child">└─ itch_research_workflow.py</div>
+        <div class="tree-row folder">▸ <span>tests/</span></div>
+        <div class="tree-row folder">▸ <span>scripts/</span></div>
+        <div class="tree-row folder">▸ <span>results/</span></div>
+        <div class="tree-row folder new-folder">＋ <span>web/</span><em>new</em></div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="local-pill"><span class="pulse-dot"></span> Local dashboard</div>
+        <small>No cloud connection · Your project data stays on your machine</small>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Toggle menu">☰</button>
+        <div class="breadcrumbs">Workspace <span>/</span> <strong>Research overview</strong></div>
+        <div class="topbar-right"><span class="local-chip"><span></span> RUNNING LOCALLY</span><button class="icon-button" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">◐</button></div>
+      </header>
+
+      <section class="page-section" id="overview">
+        <div class="hero-row">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> PROJECT CONTROL ROOM</div>
+            <h1>Build. Replay.<br /><span>Measure. Research.</span></h1>
+            <p class="hero-copy">A single place to navigate the Hybrid Limit Order Book Simulator, track what remains, and launch the workflows from your terminal.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#roadmap">View completion roadmap <span>↗</span></a>
+              <button class="button button-secondary" data-copy="./scripts/run_itch_research.sh --stock-locate 14 --snapshot-interval 10">Copy research command <span>⧉</span></button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="visual-ring ring-one"></div><div class="visual-ring ring-two"></div><div class="visual-ring ring-three"></div>
+            <div class="visual-core"><span class="core-top">ORDER BOOK</span><div class="book-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="core-bottom">RESEARCH ENGINE</span></div>
+            <span class="visual-node node-a">ITCH</span><span class="visual-node node-b">C++</span><span class="visual-node node-c">PY</span>
+          </div>
+        </div>
+
+        <div class="notice-strip"><span class="notice-icon">i</span><div><strong>Project-state note</strong><p>This is a local roadmap dashboard, not an automatic repository scanner. Its status reflects the latest project summary and can be updated as you finish tasks.</p></div><button class="text-button" id="dismissNotice" aria-label="Dismiss note">×</button></div>
+
+        <div class="section-heading"><div><div class="eyebrow">AT A GLANCE</div><h2>Project snapshot</h2></div><span class="section-meta">Based on latest project status</span></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span class="stat-icon cyan">⌘</span><span class="mini-status done">IMPLEMENTED</span></div><strong class="stat-number">C++ core</strong><p>Order book, matching, simulator and ITCH replay pipeline.</p><div class="stat-foot"><span class="foot-dot green"></span> Preserve and regression-test</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-icon purple">◉</span><span class="mini-status active">IN PROGRESS</span></div><strong class="stat-number">Python research</strong><p>Replay workflow, diagnostics and plots are already underway.</p><div class="stat-foot"><span class="foot-dot purple-dot"></span> Modularize and verify</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-icon amber">✓</span><span class="mini-status todo">FINAL CHECKS</span></div><strong class="stat-number">Validation</strong><p>End-to-end correctness, deterministic outputs and data checks.</p><div class="stat-foot"><span class="foot-dot amber-dot"></span> Sign-off required</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-icon coral">↗</span><span class="mini-status todo">NEXT STAGE</span></div><strong class="stat-number">Empirical research</strong><p>Use the finished pipeline to test research hypotheses.</p><div class="stat-foot"><span class="foot-dot coral-dot"></span> After infrastructure</div></article>
+        </div>
+
+        <div class="section-heading pipeline-heading"><div><div class="eyebrow">DATA FLOW</div><h2>From raw messages to research</h2></div><span class="section-meta">Target architecture</span></div>
+        <div class="pipeline-card">
+          <div class="pipeline-step"><span class="step-index">01</span><div class="step-icon">▤</div><strong>ITCH data</strong><small>Binary stream</small></div><span class="pipeline-arrow">→</span>
+          <div class="pipeline-step"><span class="step-index">02</span><div class="step-icon">⚙</div><strong>C++ replay</strong><small>Existing core</small></div><span class="pipeline-arrow">→</span>
+          <div class="pipeline-step"><span class="step-index">03</span><div class="step-icon">▥</div><strong>Observations</strong><small>Book snapshots</small></div><span class="pipeline-arrow">→</span>
+          <div class="pipeline-step"><span class="step-index">04</span><div class="step-icon">⌁</div><strong>Features</strong><small>Microstructure</small></div><span class="pipeline-arrow">→</span>
+          <div class="pipeline-step"><span class="step-index">05</span><div class="step-icon">▦</div><strong>Datasets</strong><small>Reproducible</small></div><span class="pipeline-arrow">→</span>
+          <div class="pipeline-step"><span class="step-index">06</span><div class="step-icon">⌕</div><strong>Research</strong><small>Experiments</small></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="roadmap">
+        <div class="section-heading"><div><div class="eyebrow">REMAINING WORK</div><h2>Completion roadmap</h2><p class="section-description">Tick items when they are genuinely complete. Progress is saved in this browser on this computer.</p></div><button class="button button-secondary button-small" id="resetProgress">Reset checklist</button></div>
+        <div class="progress-overview"><div class="progress-copy"><strong><span id="completedCount">0</span> of <span id="totalCount">0</span> tasks checked</strong><span id="progressLabel">Start by finishing the current workflow transition.</span></div><div class="progress-track"><span id="progressFill"></span></div><strong class="progress-percent" id="progressPercent">0%</strong></div>
+        <div class="roadmap-grid" id="roadmapGrid">
+          <article class="roadmap-card" data-phase="workflow"><div class="roadmap-card-head"><span class="phase-number">01</span><span class="phase-state state-active">DO FIRST</span></div><h3>Finish the current workflow</h3><p>Stabilize the example entry point and result-folder behavior.</p><div class="task-list">
+            <label class="task"><input type="checkbox" data-task="workflow-entry"><span><strong>Move the runnable workflow to examples/</strong><small>Remove test-runner logic from the application entry point.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="workflow-paths"><span><strong>Fix project root and output paths</strong><small>Verify default output names and explicit --output-dir overrides.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="workflow-scripts"><span><strong>Update launcher scripts</strong><small>Check run_itch_research.sh and list_stocks.sh references.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="workflow-run"><span><strong>Run and inspect a real workflow</strong><small>Check JSON diagnostics, plots, message counts and output location.</small></span></label>
+          </div></article>
+          <article class="roadmap-card" data-phase="python"><div class="roadmap-card-head"><span class="phase-number">02</span><span class="phase-state state-active">DEVELOP</span></div><h3>Complete Python research APIs</h3><p>Extract reusable functionality; do not rewrite features already implemented.</p><div class="task-list">
+            <label class="task"><input type="checkbox" data-task="python-replay"><span><strong>Historical replay API</strong><small>Stable wrapper over the existing C++ ITCH replay.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="python-observations"><span><strong>Observation extraction</strong><small>Consistent timestamps, quote fields and order-book depth.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="python-features"><span><strong>Reusable microstructure features</strong><small>Spread, imbalance, microprice and carefully defined returns.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="python-datasets"><span><strong>Dataset and experiment APIs</strong><small>Stable schemas, metadata and reproducible output.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="python-stats"><span><strong>Reusable stats and plotting functions</strong><small>Separate analysis logic from the all-in-one workflow.</small></span></label>
+          </div></article>
+          <article class="roadmap-card" data-phase="quality"><div class="roadmap-card-head"><span class="phase-number">03</span><span class="phase-state state-todo">VERIFY</span></div><h3>System-wide correctness</h3><p>Prove that outputs are valid, stable and reproducible.</p><div class="task-list">
+            <label class="task"><input type="checkbox" data-task="quality-tests"><span><strong>Run all C++ and Python tests</strong><small>Confirm test discovery and report the actual outcome.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="quality-fixtures"><span><strong>Add known-answer replay fixtures</strong><small>Verify snapshots and features against hand-computed values.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="quality-edgecases"><span><strong>Test input and parameter edge cases</strong><small>Compressed files, empty input, incomplete records and invalid arguments.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="quality-determinism"><span><strong>Check deterministic end-to-end output</strong><small>Same input and configuration should reproduce comparable results.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="quality-leakage"><span><strong>Check feature timing and leakage</strong><small>Forecast features use no information from the future.</small></span></label>
+          </div></article>
+          <article class="roadmap-card" data-phase="release"><div class="roadmap-card-head"><span class="phase-number">04</span><span class="phase-state state-todo">RELEASE</span></div><h3>Package and document</h3><p>Make setup and reproduction straightforward for another developer.</p><div class="task-list">
+            <label class="task"><input type="checkbox" data-task="release-package"><span><strong>Verify pyproject.toml and package imports</strong><small>Editable install and intended package layout work cleanly.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="release-docs"><span><strong>Finish architecture and data docs</strong><small>Setup, replay, benchmarks, profiling and research usage.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="release-git"><span><strong>Check repository hygiene</strong><small>Raw market data and generated artifacts are handled deliberately.</small></span></label>
+            <label class="task"><input type="checkbox" data-task="release-clean"><span><strong>Reproduce a clean setup</strong><small>Follow documented commands without undocumented local steps.</small></span></label>
+          </div></article>
+        </div>
+      </section>
+
+      <section class="page-section" id="examples">
+        <div class="section-heading"><div><div class="eyebrow">RUNNABLE DEMONSTRATIONS</div><h2>Examples directory</h2><p class="section-description">Keep demos in examples/ and automated checks in tests/. Planned filenames are marked explicitly.</p></div><span class="count-chip">3 established · 5 proposed</span></div>
+        <div class="example-list">
+          <article class="example-row"><div class="example-icon icon-cyan">01</div><div class="example-info"><div class="example-title-line"><h3>basic_simulation.py</h3><span class="file-status existing">Established reference</span></div><p>Demonstrate synthetic orders and matching through the simulator.</p><code>python examples/basic_simulation.py</code></div><button class="copy-button" data-copy="python examples/basic_simulation.py" title="Copy command">⧉</button></article>
+          <article class="example-row"><div class="example-icon icon-purple">02</div><div class="example-info"><div class="example-title-line"><h3>historical_replay.py</h3><span class="file-status existing">Established reference</span></div><p>Replay historical ITCH data using the existing C++ replay path.</p><code>python examples/historical_replay.py</code></div><button class="copy-button" data-copy="python examples/historical_replay.py" title="Copy command">⧉</button></article>
+          <article class="example-row"><div class="example-icon icon-amber">03</div><div class="example-info"><div class="example-title-line"><h3>itch_research_workflow.py</h3><span class="file-status existing">Established reference</span></div><p>Run the integrated historical replay, diagnostics, analysis and plotting workflow.</p><code>./scripts/run_itch_research.sh --stock-locate 14 --snapshot-interval 10</code></div><button class="copy-button" data-copy="./scripts/run_itch_research.sh --stock-locate 14 --snapshot-interval 10" title="Copy command">⧉</button></article>
+          <article class="example-row planned-row"><div class="example-icon icon-muted">04</div><div class="example-info"><div class="example-title-line"><h3>inspect_order_book.py</h3><span class="file-status planned">Proposed</span></div><p>Inspect one book state: best bid/ask, spread, midpoint and depth.</p><code>python examples/inspect_order_book.py</code></div><button class="copy-button" data-copy="python examples/inspect_order_book.py" title="Copy command">⧉</button></article>
+          <article class="example-row planned-row"><div class="example-icon icon-muted">05</div><div class="example-info"><div class="example-title-line"><h3>extract_observations.py</h3><span class="file-status planned">Proposed</span></div><p>Extract a consistent sequence of book snapshots from replay.</p><code>python examples/extract_observations.py</code></div><button class="copy-button" data-copy="python examples/extract_observations.py" title="Copy command">⧉</button></article>
+          <article class="example-row planned-row"><div class="example-icon icon-muted">06</div><div class="example-info"><div class="example-title-line"><h3>calculate_features.py</h3><span class="file-status planned">Proposed</span></div><p>Calculate reusable microstructure features from observations.</p><code>python examples/calculate_features.py</code></div><button class="copy-button" data-copy="python examples/calculate_features.py" title="Copy command">⧉</button></article>
+          <article class="example-row planned-row"><div class="example-icon icon-muted">07</div><div class="example-info"><div class="example-title-line"><h3>generate_dataset.py</h3><span class="file-status planned">Proposed</span></div><p>Generate a versioned, reproducible research dataset with metadata.</p><code>python examples/generate_dataset.py</code></div><button class="copy-button" data-copy="python examples/generate_dataset.py" title="Copy command">⧉</button></article>
+          <article class="example-row planned-row"><div class="example-icon icon-muted">08</div><div class="example-info"><div class="example-title-line"><h3>analyze_market_data.py</h3><span class="file-status planned">Proposed</span></div><p>Run summary statistics and visualizations on saved research data.</p><code>python examples/analyze_market_data.py</code></div><button class="copy-button" data-copy="python examples/analyze_market_data.py" title="Copy command">⧉</button></article>
+        </div>
+        <p class="subtle-note">Commands for proposed examples are placeholders until those files and APIs are implemented. This page copies commands; it does not execute repository scripts from the browser.</p>
+      </section>
+
+      <section class="page-section" id="commands">
+        <div class="section-heading"><div><div class="eyebrow">TERMINAL SHORTCUTS</div><h2>Common commands</h2><p class="section-description">Run these from the repository root in your MSYS2 UCRT64 terminal unless the command says otherwise.</p></div></div>
+        <div class="command-grid">
+          <article class="command-card"><div class="command-card-top"><span class="command-symbol green-symbol">$</span><span>BUILD</span></div><h3>Build C++ targets</h3><p>Compile the native components using the project's build script.</p><div class="command-code"><code>./scripts/build.sh</code><button data-copy="./scripts/build.sh" aria-label="Copy build command">⧉</button></div></article>
+          <article class="command-card"><div class="command-card-top"><span class="command-symbol purple-symbol">✓</span><span>TEST</span></div><h3>Run tests</h3><p>Execute the C++ and Python test suites through the project script.</p><div class="command-code"><code>./scripts/run_tests.sh</code><button data-copy="./scripts/run_tests.sh" aria-label="Copy test command">⧉</button></div></article>
+          <article class="command-card"><div class="command-card-top"><span class="command-symbol cyan-symbol">↻</span><span>REPLAY</span></div><h3>Research workflow</h3><p>Use a short initial run before scaling to millions of messages.</p><div class="command-code"><code>./scripts/run_itch_research.sh --stock-locate 14 --snapshot-interval 10</code><button data-copy="./scripts/run_itch_research.sh --stock-locate 14 --snapshot-interval 10" aria-label="Copy research command">⧉</button></div></article>
+          <article class="command-card"><div class="command-card-top"><span class="command-symbol amber-symbol">◫</span><span>DASHBOARD</span></div><h3>Start this website</h3><p>Serve the local UI on 127.0.0.1. Stop it with Ctrl+C.</p><div class="command-code"><code>./scripts/run_dashboard.sh</code><button data-copy="./scripts/run_dashboard.sh" aria-label="Copy dashboard command">⧉</button></div></article>
+        </div>
+        <div class="server-info"><div class="server-icon">↗</div><div><strong>Open the local dashboard</strong><p>After starting the server, navigate to <code>http://127.0.0.1:8000</code>. To use another port: <code>PORT=8080 ./scripts/run_dashboard.sh</code>.</p></div><button class="button button-secondary button-small" data-copy="http://127.0.0.1:8000">Copy URL</button></div>
+      </section>
+
+      <section class="page-section" id="architecture">
+        <div class="section-heading"><div><div class="eyebrow">KEEP THE BOUNDARIES CLEAN</div><h2>Architecture map</h2><p class="section-description">The website is a navigation and planning layer; it does not replace the engine or research modules.</p></div></div>
+        <div class="architecture-grid">
+          <article class="architecture-card"><span class="arch-index">A / NATIVE</span><h3>C++ core</h3><p>Owns the order book, matching behavior, ITCH parsing/replay components, metrics and performance-critical logic.</p><div class="arch-tags"><span>OrderBook</span><span>ITCH replay</span><span>Benchmarks</span></div></article>
+          <article class="architecture-card"><span class="arch-index">B / PYTHON</span><h3>Research API</h3><p>Wraps the existing core and provides observations, feature generation, datasets, statistics and visualizations.</p><div class="arch-tags"><span>Replay wrappers</span><span>Features</span><span>Experiments</span></div></article>
+          <article class="architecture-card"><span class="arch-index">C / INTERFACE</span><h3>Local dashboard</h3><p>Shows the roadmap and command references in your browser. It currently has no backend connection to run or inspect jobs.</p><div class="arch-tags"><span>Static UI</span><span>Local only</span><span>No external deps</span></div></article>
+        </div>
+      </section>
+
+      <footer class="footer"><div class="footer-brand"><span class="brand-mark small-mark"><span></span><span></span><span></span></span><strong>LOB LAB</strong></div><span>Local project dashboard · Static frontend · No telemetry</span><a href="#overview">Back to top ↑</a></footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite">Copied to clipboard</div>
+  <script src="app.js"></script>
+</body>
+</html>

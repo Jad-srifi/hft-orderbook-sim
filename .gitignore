@@ -10,6 +10,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache
 
 # IDE
 .vscode/
@@ -29,3 +30,4 @@ data/itch/**/*.bin
 
 
 data/
+results/

@@ -753,6 +753,32 @@ bool OrderBook::modify(OrderId order_id, Price new_price, Quantity new_quantity)
         {
             LOB_PROFILE_SCOPE("OrderBook::modify::in_place");
 
+            Quantity quantity_decrease = order->quantity - new_quantity;
+
+            if (order->side == Side::BUY)
+            {
+                for (PriceLevel &level : this->bids)
+                {
+                    if (level.price == order->price)
+                    {
+                        level.total_quantity -= quantity_decrease;
+                        break;
+                    }
+                }
+            }
+
+            else if (order->side == Side::SELL)
+            {
+                for (PriceLevel &level : this->asks)
+                {
+                    if (level.price == order->price)
+                    {
+                        level.total_quantity -= quantity_decrease;
+                        break;
+                    }
+                }
+            }
+
             order->price = new_price;
             order->quantity = new_quantity;
         }

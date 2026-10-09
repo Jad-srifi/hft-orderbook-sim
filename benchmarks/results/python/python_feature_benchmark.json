@@ -1,0 +1,78 @@
+{
+  "benchmark": "Python microstructure feature generation",
+  "created_at_utc": "2026-10-09T16:36:39.020408+00:00",
+  "input": {
+    "kind": "deterministically generated synthetic order-book snapshots",
+    "snapshot_count": 1000000,
+    "seed": 20261009,
+    "snapshot_schema": [
+      "bid",
+      "ask",
+      "bid_depth",
+      "ask_depth"
+    ]
+  },
+  "configuration": {
+    "repeat": 10,
+    "warmup": 1,
+    "timed_scope": "feature calculation plus conversion of vectorized results to Python lists"
+  },
+  "environment": {
+    "python": "3.14.7 (main, Aug  8 2026, 21:15:19)  [MINGW GCC UCRT 16.2.0 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "numpy": "2.5.3"
+  },
+  "correctness": {
+    "outputs_equivalent": true,
+    "features": [
+      "mid_price",
+      "spread",
+      "relative_spread",
+      "bid_depth",
+      "ask_depth",
+      "total_depth",
+      "depth_imbalance",
+      "mid_price_return"
+    ]
+  },
+  "results": {
+    "naive": {
+      "runs_seconds": [
+        1.9008704000152647,
+        1.7792305999901146,
+        1.7339818000327796,
+        1.6509591999929398,
+        1.8929714998230338,
+        1.8162944000214338,
+        1.8223778000101447,
+        2.1306783000472933,
+        1.6914887998718768,
+        1.744340700097382
+      ],
+      "min_seconds": 1.6509591999929398,
+      "median_seconds": 1.7977625000057742,
+      "max_seconds": 2.1306783000472933,
+      "snapshots_per_second": 556247.001479221
+    },
+    "optimized": {
+      "runs_seconds": [
+        0.9460909999907017,
+        0.90582159999758,
+        0.9627917998004705,
+        0.9481206999626011,
+        0.9058167000766844,
+        0.86869450006634,
+        0.8961084000766277,
+        0.8403082999866456,
+        0.9058990001212806,
+        0.8615996001753956
+      ],
+      "min_seconds": 0.8403082999866456,
+      "median_seconds": 0.9058191500371322,
+      "max_seconds": 0.9627917998004705,
+      "snapshots_per_second": 1103973.1274824638
+    },
+    "speedup_naive_over_optimized": 1.9846814896020675
+  },
+  "output_file": "C:/Users/Jad/Documents/Quant Trading Projects/hybrid-lob-simulator/benchmarks/results/python/python_feature_benchmark.json"
+}
