@@ -1,0 +1,29 @@
+<form class="upload-form" id="upload-form">
+  <fieldset class="input-mode-group">
+    <legend>Choose how to access the input</legend>
+    <label class="input-mode-option"><input type="radio" name="input_mode" value="local" checked><span><strong>Use a file already in the project</strong><small>Recommended for large ITCH feeds. No upload and no source-file copy.</small></span></label>
+    <label class="input-mode-option"><input type="radio" name="input_mode" value="upload"><span><strong>Upload a file from this computer</strong><small>For small datasets or files outside the project folders; maximum 512 MB by default.</small></span></label>
+  </fieldset>
+  <section id="local-source-panel" class="local-source-panel">
+    <div class="local-source-heading"><div><strong>Project-local inputs</strong><p>Choose a supported file under <code>data/</code> or <code>results/</code>. The backend reads it directly from disk.</p></div><button class="button secondary small" type="button" id="refresh-local-inputs">↻ Refresh</button></div>
+    <label class="field" for="local-source-select"><span>Existing ITCH or dataset file</span><select id="local-source-select" name="local_source_path" required><option value="">Scanning project files…</option></select><small id="local-source-status" role="status">Scanning data/ and results/ for .txt, .gz, and .csv files.</small></label>
+  </section>
+  <section id="upload-source-panel" hidden>
+    <label class="drop-zone" id="drop-zone" for="source-file">
+      <span class="drop-icon">↑</span>
+      <strong>Drop a market-data file here</strong>
+      <span>or <u>browse files</u></span>
+      <small>ITCH text (.txt), gzip-compressed ITCH (.gz), or observation/dataset (.csv)</small>
+      <input id="source-file" name="file" type="file" accept=".txt,.gz,.csv">
+      <span class="selected-file" id="selected-file">No file selected</span>
+    </label>
+  </section>
+  <div class="parameter-grid">
+    <label class="field"><span>Stock Locate</span><input name="stock_locate" type="number" min="0" max="65535" value="14"><small>Used for ITCH; ignored for CSV.</small></label>
+    <label class="field"><span>Message limit</span><select name="message_limit"><option value="100000" selected>100,000 messages</option><option value="1000000">1,000,000 messages</option><option value="5000000">5,000,000 messages</option><option value="20000000">20,000,000 messages</option><option value="0">Full file (large run)</option></select><small>Zero means full file.</small></label>
+    <label class="field"><span>Snapshot interval</span><select name="snapshot_interval"><option value="10">Every 10 messages</option><option value="20" selected>Every 20 messages</option><option value="100">Every 100 messages</option><option value="1000">Every 1,000 messages</option><option value="10000">Every 10,000 messages</option><option value="50000">Every 50,000 messages</option><option value="100000">Every 100,000 messages</option></select><small>Controls temporal resolution and memory use.</small></label>
+    <label class="field"><span>Price scale</span><select name="price_scale"><option value="100" selected>Integer ticks (100 ticks = 1.00)</option><option value="1">Already in price units</option></select><small>Applied only for display, not source data.</small></label>
+  </div>
+  <div class="upload-actions"><p class="muted small-text">All processing stays local. Large source files should be selected from the project folders instead of uploaded.</p><button class="button primary" id="submit-run" type="submit"><span>▶</span> Run analysis</button></div>
+  <div class="form-error" id="upload-error" role="alert" hidden></div>
+</form>

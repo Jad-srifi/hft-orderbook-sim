@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Data{% endblock %}
+{% block breadcrumb %}Data{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow">DATA MANAGEMENT</div><h1>Inputs and datasets</h1><p>Select an existing project-local source or upload a smaller supported file. Large ITCH feeds are read directly from disk.</p></div>
+<section class="panel"><div class="panel-head"><div><h3>Select a data source</h3><p>Use large files already under the project data/ directory in place, or upload an observation CSV.</p></div><span class="panel-index">01 / IMPORT</span></div>{% include "partials/upload_form.html" %}</section>
+<div class="section-header"><div><div class="eyebrow">LOCAL REGISTRY</div><h2>Available inputs</h2><p>Each input is attached to one reproducible run.</p></div></div>
+<section class="panel"><div class="run-list" id="recent-runs"><div class="empty-state">Loading local runs…</div></div></section>
+{% endblock %}

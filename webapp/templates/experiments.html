@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Experiments{% endblock %}
+{% block breadcrumb %}Experiments{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow">REPRODUCIBILITY REGISTER</div><h1>Runs and experiments</h1><p>Each record identifies its input, scope, parameters, status and saved artifacts. This is an execution registry, not a claim of strategy performance.</p></div>
+<section class="panel"><div class="table-toolbar"><div><h3>All runs</h3><p>Local persisted run metadata</p></div><button class="button secondary small" id="refresh-runs">Refresh</button></div><div class="responsive-table"><table class="runs-table"><thead><tr><th>Run / input</th><th>Status</th><th>Scope</th><th>Snapshot interval</th><th>Created</th><th>Results</th></tr></thead><tbody id="experiments-body"><tr><td colspan="6" class="empty-cell">Loading runs…</td></tr></tbody></table></div></section>
+<section class="section-header"><div><div class="eyebrow">EXPERIMENT RECORD</div><h2>Selected run metadata</h2><p>Configuration, message-read count, snapshot-capture count and diagnostics for a single run.</p></div><div class="selector-field"><label for="experiment-run-select">Run</label><select id="experiment-run-select"><option value="">Select a run</option></select></div></section>
+<section class="panel"><pre id="experiment-json" class="metadata-json">Select a run to inspect its record.</pre></section>
+{% endblock %}

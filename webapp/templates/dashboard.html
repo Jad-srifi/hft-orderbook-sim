@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Research overview{% endblock %}
+{% block breadcrumb %}Research overview{% endblock %}
+{% block content %}
+<section class="hero compact-hero">
+  <div><div class="eyebrow">LOCAL RESEARCH ENVIRONMENT</div><h1>Replay the book.<br><em>Inspect the evidence.</em></h1><p class="hero-copy">Run the existing ITCH research workflow, inspect every saved Matplotlib figure and examine synchronized order-book states without loading the raw feed into your browser.</p></div>
+  <div class="hero-stat"><span class="hero-stat-label">ENGINE BOUNDARY</span><strong>C++ → Python</strong><small>Existing core remains authoritative</small></div>
+</section>
+<section class="stat-grid" id="overview-stats">
+  <article class="stat-card"><span class="stat-label">TOTAL RUNS</span><strong id="stat-total">—</strong><small>Persisted in local results</small></article>
+  <article class="stat-card"><span class="stat-label">COMPLETED</span><strong id="stat-complete">—</strong><small>Successful analysis jobs</small></article>
+  <article class="stat-card"><span class="stat-label">PENDING / RUNNING</span><strong id="stat-active">—</strong><small>Current local jobs</small></article>
+  <article class="stat-card"><span class="stat-label">MOST RECENT</span><strong id="stat-latest">—</strong><small>Latest uploaded input</small></article>
+</section>
+<div class="section-header"><div><div class="eyebrow">START A RUN</div><h2>Analyze local market data</h2><p>Select the existing ITCH feed directly from disk for large-file replay, or upload a smaller ITCH/CSV input. CSV uploads must match a documented observation/dataset schema.</p></div><a class="text-link" href="/data">Manage data ↗</a></div>
+<section class="panel upload-panel"><div class="panel-head"><div><h3>New research run</h3><p>Input, parameters, outputs and diagnostics are recorded under one run ID.</p></div><span class="panel-index">01 / INPUT</span></div>
+  {% include "partials/upload_form.html" %}
+</section>
+<div class="section-header"><div><div class="eyebrow">RUN REGISTRY</div><h2>Recent experiments</h2><p>Open a run to inspect its artifacts, plots or replay state sequence.</p></div><a class="text-link" href="/experiments">All experiments ↗</a></div>
+<section class="panel"><div class="run-list" id="recent-runs"><div class="empty-state">Loading local runs…</div></div></section>
+<div class="notice neutral-notice"><span class="notice-mark">i</span><div><strong>Data and chart integrity</strong><p>Aggregate CSV observations do not imply per-price-level liquidity. The dashboard disables the ladder and heatmap when the input has no individual bid/ask levels instead of inventing them.</p></div></div>
+{% endblock %}

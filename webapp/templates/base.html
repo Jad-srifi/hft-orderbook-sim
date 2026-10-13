@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>{% block title %}Research Workspace{% endblock %} · Hybrid LOB Simulator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/research.css') }}">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" id="research-sidebar">
+      <a class="brand" href="/" aria-label="Project overview">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span><strong>LOB LAB</strong><small>HYBRID SIMULATOR</small></span>
+      </a>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <a class="nav-item {% if active_page == 'research' %}active{% endif %}" href="/research"><span>◈</span> Overview</a>
+        <a class="nav-item {% if active_page == 'data' %}active{% endif %}" href="/data"><span>▤</span> Data</a>
+        <a class="nav-item {% if active_page == 'analysis' %}active{% endif %}" href="/analysis"><span>⌁</span> Analysis</a>
+        <a class="nav-item {% if active_page == 'orderbook' %}active{% endif %}" href="/replay#depth-panel"><span>▥</span> Order Book</a>
+        <a class="nav-item {% if active_page == 'replay' %}active{% endif %}" href="/replay"><span>▷</span> Replay</a>
+        <a class="nav-item {% if active_page == 'experiments' %}active{% endif %}" href="/experiments"><span>⌘</span> Experiments</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="local-badge"><i></i> LOCAL ONLY</span>
+        <p>Local inputs stay in place; run outputs are stored under this repository's results directory.</p>
+        <a href="/" class="overview-link">Project roadmap ↗</a>
+      </div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <div class="crumb">Hybrid LOB Simulator <span>/</span> <strong>{% block breadcrumb %}Research Workspace{% endblock %}</strong></div>
+        <div class="topbar-right"><span class="status-dot"></span><span>LOCAL RESEARCH</span><button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme">◐</button></div>
+      </header>
+      <div class="page-wrap">
+        {% block content %}{% endblock %}
+      </div>
+      <footer class="page-footer"><span>Hybrid C++/Python Limit Order Book Simulator</span><span>Research tooling · not a live trading system</span></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/upload.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/replay.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

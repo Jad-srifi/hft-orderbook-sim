@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Analysis{% endblock %}
+{% block breadcrumb %}Analysis{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow">RESULTS / VISUAL DIAGNOSTICS</div><h1>Analysis gallery</h1><p>Every image under the selected run's output directory is listed, including all existing Matplotlib workflow outputs and dashboard-generated overview plots.</p></div>
+<section class="panel selector-panel"><div class="selector-field"><label for="analysis-run-select">Select run</label><select id="analysis-run-select"><option value="">Loading runs…</option></select></div><div class="inline-links" id="analysis-artifact-links"></div></section>
+<section class="section-header"><div><div class="eyebrow">PLOT OUTPUTS</div><h2>Figures</h2><p id="plot-count">Choose a completed run to load its gallery.</p></div><div class="gallery-filters"><label for="plot-category">Category</label><select id="plot-category"><option value="all">All categories</option></select></div></section>
+<section class="plot-gallery" id="plot-gallery"><div class="empty-state">No run selected.</div></section>
+<section class="section-header"><div><div class="eyebrow">VALIDATION AND REPRODUCIBILITY</div><h2>Diagnostics</h2><p>Read the generated diagnostic JSON alongside the figures.</p></div><button type="button" class="button secondary small" id="toggle-diagnostics">Show JSON</button></section>
+<section class="panel diagnostic-panel"><div id="diagnostics-meta" class="diagnostic-meta">No diagnostic artifact selected.</div><pre id="diagnostics-json" hidden>{}</pre></section>
+<div class="image-modal" id="image-modal" hidden role="dialog" aria-modal="true" aria-label="Expanded plot"><button id="close-image-modal" class="modal-close" aria-label="Close enlarged plot">×</button><img id="modal-image" alt="Expanded research plot"><p id="modal-title"></p></div>
+{% endblock %}

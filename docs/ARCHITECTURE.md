@@ -16456,3 +16456,446 @@ out-of-sample research
 ```
 
 The C++ engine is now sufficiently integrated for the research layer to build on it without altering its established market-state semantics.
+
+---
+
+# APPEND-ONLY UPDATE — CURRENT STATUS THROUGH CHAPTER 12 (2026-10-13)
+
+This section is the **authoritative current status** of the repository as of this update. It supplements the earlier architectural record without deleting its history. Earlier status sections that say Chapter 11's ITCH binding test is pending, Chapter 12 is still the next chapter, or Chapter 13 is empirical microstructure research describe an earlier point in the project and are superseded by this addendum.
+
+The implementation status below reflects the latest project state reported in the conversation. It is not a fresh build or test of the user's local Windows checkout.
+
+## U1. Current Chapter Status
+
+```text
+Chapter 1  — Core Order Book                              COMPLETE
+Chapter 2  — Matching Engine                              COMPLETE
+Chapter 3  — Order Tracking                               COMPLETE
+Chapter 4  — Modification / Replace                       COMPLETE
+Chapter 5  — Event-Driven Simulation                      COMPLETE
+Chapter 6  — Market Microstructure Metrics                COMPLETE
+Chapter 7  — Execution Analysis                           COMPLETE
+Chapter 8  — Inventory / P&L / Risk Accounting            COMPLETE
+Chapter 9  — Historical Nasdaq ITCH Replay                COMPLETE
+Chapter 10 — C++ Benchmarking and Profiling               COMPLETE
+Chapter 11 — C++ → Python Integration                    COMPLETE
+Chapter 12 — Python Research Infrastructure, Examples,
+             and Python Feature Benchmarks                 COMPLETE / INTEGRATED
+Chapter 13 — Professional Local Research Dashboard        NEXT
+Chapter 14 — Empirical Microstructure Research            FUTURE
+```
+
+“Complete” describes the implementation stage reached according to the latest reported project state. The final release gate still requires rerunning the relevant test suite and exercising the full workflow from the current checkout.
+
+## U2. Current End-to-End Architecture
+
+The existing C++ engine remains the sole source of truth for market state and matching. Python provides the research-facing extraction, analysis, feature, dataset, and presentation layer. The local web application planned for Chapter 13 will call the same research APIs rather than implementing a second order book in Python or JavaScript.
+
+```text
+SYNTHETIC INPUT                              HISTORICAL INPUT
+      |                                            |
+      v                                            v
+   Simulator                                ITCH File Reader
+      |                                            |
+      v                                            v
+   OrderBook  <----------------------------- ItchReplay
+      |
+      +--> Matching / Trades / Metrics / Execution / Inventory
+      |
+      v
+   pybind11 boundary
+      |
+      v
+   lob_cpp extension
+      |
+      v
+   Python research layer
+      |
+      +--> Replay wrapper and diagnostics
+      +--> Book-state observations
+      +--> Microstructure features
+      +--> Reproducible datasets / metadata
+      +--> Statistics and Matplotlib plots
+      |
+      +--> CLI examples / batch workflows
+      |
+      +--> Chapter 13 local Flask dashboard
+               |
+               +--> Matplotlib plot gallery
+               +--> Interactive order-book depth chart
+               +--> Time/price liquidity heatmap
+               +--> Synchronized play / pause / reset controls
+```
+
+Historical ITCH records continue to be interpreted as exchange-side historical state transitions. They are not sent through the synthetic `Simulator` for re-matching. The dashboard is a presentation and orchestration layer over the existing implementation, not another matching engine.
+
+## U3. Chapter 11 — C++ to Python Integration: Current State
+
+The binding layer remains in `cpp/bindings/lob_bindings.cpp` and exposes the `lob_cpp` extension. The latest reported state is that both binding test files pass, including the ITCH integration test after correcting the expectation for successful `ItchReplay.apply()` to be Python `None`.
+
+```text
+cpp/bindings/lob_bindings.cpp
+python/__init__.py
+tests/python/test_bindings.py
+tests/python/test_itch_bindings.py
+pyproject.toml
+```
+
+The platform-specific `lob_cpp*.pyd` file is a local build artifact. It should normally be rebuilt locally and excluded from Git rather than committed as application source.
+
+## U4. Chapter 12 — Python Research Infrastructure
+
+Chapter 12 builds a reusable research layer above `lob_cpp`. It does not reimplement C++ matching, ITCH state mutation, execution accounting, or inventory accounting.
+
+### U4.1 Python research modules
+
+The current research-facing structure includes:
+
+```text
+python/
+├── __init__.py
+├── itch_directory.py
+├── observations.py
+├── datasets.py
+├── backtests/
+│   └── historical_replay.py
+├── research/
+├── plots/
+└── lob_cpp*.pyd                 # generated local extension; do not commit
+```
+
+The modules have the following responsibilities:
+
+- `itch_directory.py`: read the ITCH Stock Directory and support stock listing, including gzip input.
+- `backtests/historical_replay.py`: provide a higher-level wrapper around the C++ ITCH reader/parser/mapper/replay path.
+- `observations.py`: convert reconstructed book states into consistently structured observations.
+- `datasets.py`: support writing and preparing observations as research datasets.
+- `research/`: reusable research/statistical utilities.
+- `plots/`: reusable visualization functions, in addition to plots already generated by the integrated workflow.
+
+Any thin wrappers for individual C++ modules should remain wrappers over the same engine. They must not duplicate core trading or accounting behavior.
+
+### U4.2 Examples directory
+
+The current examples pack is organized as:
+
+```text
+examples/
+├── basic_simulation.py
+├── historical_replay.py
+├── itch_research_workflow.py
+├── inspect_order_book.py
+├── extract_observations.py
+├── generate_dataset.py
+├── calculate_features.py
+├── analyze_market_data.py
+├── _common.py
+└── README.md
+```
+
+Responsibilities:
+
+- `basic_simulation.py`: demonstrate synthetic order submission and matching through the bound C++ engine.
+- `historical_replay.py`: run bounded historical replay using a chosen Stock Locate and message limit.
+- `itch_research_workflow.py`: run the integrated ITCH research workflow, including snapshot diagnostics, statistical summaries, JSON outputs, and Matplotlib visualizations.
+- `inspect_order_book.py`: inspect best quotes, spread, and price-level depth.
+- `extract_observations.py`: extract reconstructed-book snapshots to a tabular file.
+- `generate_dataset.py`: validate and write a reproducible research dataset plus any defined metadata.
+- `calculate_features.py`: calculate supported microstructure features from observations.
+- `analyze_market_data.py`: calculate summaries and create analysis plots.
+- `_common.py`: shared example utilities and adapters.
+- `README.md`: document example responsibilities and how to invoke them.
+
+The full pre-existing research workflow should be moved/copied into `examples/itch_research_workflow.py` without replacing it with a simplified demo. The workflow's output directory default is intended to follow:
+
+```text
+results/itch_results_<stock_locate>_<message_limit>/
+```
+
+For example:
+
+```text
+results/itch_results_14_100000/
+results/itch_results_14_20000000/
+results/itch_results_14_full/
+```
+
+The CLI should use `--output-dir` with `default=None` so this automatic naming logic is reached, and a supplied `--output-dir` must override the default.
+
+### U4.3 Shell scripts
+
+The scripts layer provides a single, documented entry point for the common tasks. The reported/current inventory is:
+
+```text
+scripts/
+├── build.sh
+├── run_tests.sh
+├── run_simulation.sh
+├── replay_historical.sh
+├── run_itch_research.sh
+├── list_stocks.sh
+├── run_benchmark.sh
+├── run_all_examples.sh
+└── run_dashboard.sh
+```
+
+`run_itch_research.sh` should invoke `examples/itch_research_workflow.py`, not execute a test as the application. `run_all_examples.sh` runs the example pack in sequence and stops on the first failed command. `run_dashboard.sh` starts the local dashboard scaffold. Keep these scripts aligned with the actual CLI arguments present in each example.
+
+### U4.4 Python feature-generation benchmark
+
+The Python benchmark is separate from the existing C++ engine benchmark. It measures feature-calculation overhead, not C++ matching throughput or historical ITCH replay throughput.
+
+```text
+benchmarks/
+├── benchmark.py
+├── benchmark_naive.py
+├── benchmark_optimized.py
+└── results/
+    ├── cpp/
+    └── python/
+        └── python_feature_benchmark.json  # generated result, if saved/retained
+```
+
+- `benchmark_naive.py` is the straightforward loop-based reference implementation.
+- `benchmark_optimized.py` is the NumPy-vectorized implementation.
+- `benchmark.py` generates a deterministic synthetic snapshot workload, verifies numerical equivalence before timing, performs warm-ups/repeated runs, and can save environment/configuration/timing information as JSON.
+- `benchmarks/results/python/` stores Python benchmark result artifacts when they are deliberately retained.
+
+Example command:
+
+```bash
+python benchmarks/benchmark.py \
+    --rows 100000 \
+    --repeat 5 \
+    --warmup 1 \
+    --output benchmarks/results/python/python_feature_benchmark.json
+```
+
+The measured speedup is environment- and workload-dependent. Do not use this benchmark as a proxy for the performance of the C++ matching engine. Generated results can be excluded by `.gitignore`; explicitly force-add a chosen JSON result only when it is intentionally meant to be versioned.
+
+### U4.5 Data and result handling
+
+The default ITCH research outputs belong under `results/` in one run-specific directory. The raw ITCH source file remains under the established `data/itch/` tree and should not accidentally be committed. Keep these categories separate:
+
+```text
+source data        → data/itch/          (large/raw local data, usually Git-ignored)
+experiment outputs → results/            (generated output, usually Git-ignored)
+benchmark outputs  → benchmarks/results/ (generated; selectively retain if useful)
+source code        → python/, examples/, benchmarks/, scripts/
+```
+
+For reproducibility, each research run should record the source/input path or identifier, Stock Locate, message limit, snapshot interval, feature definitions, and relevant software/configuration details.
+
+## U5. Local Dashboard Scaffold and Chapter 13 Scope
+
+A starter local frontend and launch script have been provided under `web/` and `scripts/run_dashboard.sh`. The next chapter extends this scaffold into a genuine local research application. A static frontend alone is not the completed dashboard.
+
+### U5.1 Target implementation
+
+Use Flask as the local Python backend, reuse the existing Python research modules, preserve the existing Matplotlib plots, and use Plotly or an equivalent local interactive plotting library for the two synchronized replay visualizations.
+
+Proposed application structure:
+
+```text
+webapp/                         # new Chapter 13 application
+├── __init__.py
+├── routes.py
+├── config.py
+├── services/
+│   ├── file_service.py
+│   ├── analysis_service.py
+│   ├── replay_service.py
+│   └── plot_service.py
+├── templates/
+│   ├── base.html
+│   ├── dashboard.html
+│   ├── dataset.html
+│   ├── analysis.html
+│   └── replay.html
+└── static/
+    ├── css/styles.css
+    ├── js/upload.js
+    ├── js/dashboard.js
+    └── js/replay.js
+```
+
+This `webapp/` layout is a proposed implementation target, not a claim that these Flask files already exist.
+
+### U5.2 Drag-and-drop analysis workflow
+
+The user should be able to drag and drop or select a supported local data file, configure the replay, run analysis, and inspect the resulting experiment. Support must be explicit and validated; intended starting formats are raw `.txt`/`.gz` ITCH files and documented CSV observation/dataset schemas.
+
+Required behavior:
+
+- Validate supported formats, size, schema, Stock Locate, message limit, and snapshot interval before expensive processing.
+- Keep processing, file I/O, replay, dataset generation, and plotting in the Python backend/research layer.
+- Display processing status, errors, and the final experiment/run summary.
+- Save run-specific datasets, metadata, diagnostics, and generated plot paths.
+- Present every available Matplotlib plot produced by the selected workflow, with titles/categories and an enlarged view.
+- Display diagnostics and experiment metadata next to the graphs.
+- Keep uploaded files and generated data local by default; bind to `127.0.0.1` unless the user explicitly configures otherwise.
+- Use safe filenames, strict input validation, and upload-size limits.
+
+### U5.3 Visualization A — Order-book depth chart and ladder
+
+The depth chart shows the quantity available at price levels, with bids and asks visually distinguished. The accompanying ladder/table shows individual price levels and quantities.
+
+Required chart behavior:
+
+- Show bid and ask liquidity at each price level.
+- Show current best bid, best ask, and spread.
+- Provide tooltips for price, side, per-level quantity and, when calculated, cumulative quantity.
+- Optionally show cumulative depth curves to communicate available liquidity away from the best quotes.
+- Refresh the ladder, depth chart, and current-market metrics as replay advances.
+- Handle empty/one-sided books explicitly.
+
+This is the live replay view of **how much displayed liquidity is present at each price**.
+
+### U5.4 Visualization B — Time/price order-book liquidity heatmap
+
+The heatmap shows price against replay time/snapshot index. Color intensity represents displayed quantity for the chosen side or a clearly defined bid/ask representation.
+
+Required behavior:
+
+- Horizontal axis: timestamp or snapshot/message index.
+- Vertical axis: price level.
+- Color scale: displayed quantity, with the scale explained in the legend.
+- Tooltips: timestamp, price, side and quantity.
+- Missing/unobserved data must not be confused with zero liquidity.
+- Replay position must stay synchronized with the depth chart and ladder.
+
+This visualization reveals **how liquidity appears, disappears, and moves through price levels over time**.
+
+### U5.5 Playback controls
+
+The two visualizations, ladder and market-state metrics share one replay timeline. Required controls:
+
+```text
+Play / Pause
+Reset to first snapshot
+Previous snapshot / Next snapshot
+Timeline scrubber
+Playback-speed selector
+Current timestamp and snapshot/message index
+```
+
+Changing the selected time updates the depth chart, ladder, heatmap cursor/selection, best quotes, spread and other currently displayed metrics. Playback should use snapshots generated by the backend; it should not transfer the entire raw ITCH file into browser memory. Snapshot interval is therefore a visible replay configuration setting that affects temporal resolution.
+
+### U5.6 Professional UI requirements
+
+- Consistent typography, spacing, chart color conventions, legends and axis formatting.
+- Navigation for Overview, Data, Analysis, Order Book, Replay and Experiments.
+- Responsive desktop-oriented layout, readable metrics, and clear loading/empty/error states.
+- Accessible controls and clear upload/progress/error messages.
+- Plotly or other chart JavaScript assets should be bundled locally if offline use is a requirement.
+- No fabricated quotes, metrics or status values. Display only observed or calculated data.
+- Dashboard routes should call the same Python research APIs, not embed matching or accounting rules in browser code.
+
+### U5.7 Flask/backend validation
+
+- Test uploads, file validation, maximum size, invalid settings, and safe path handling.
+- Test that the gallery discovers and serves all relevant Matplotlib outputs for a run.
+- Test depth and heatmap data against a known small replay fixture.
+- Verify play/pause/reset, stepping, speed and timeline selection on a deterministic snapshot sequence.
+- Test processing errors and cleanup so an old run's images/metadata cannot masquerade as the current run.
+- Verify the local app works in the intended MSYS2 UCRT64/Python environment.
+
+**Chapter 13 completion condition:** from the local browser, a user can drag and drop supported data, run the existing replay/research pipeline, view all Matplotlib plots and diagnostics, examine the interactive depth chart and time/price heatmap, and play/pause/reset through synchronized reconstructed book states.
+
+## U6. Chapter 14 — Empirical Microstructure Research
+
+Empirical work follows the completion of the reusable research layer and dashboard. The research stage should focus on defined hypotheses rather than adding features without a research purpose.
+
+Potential questions remain:
+
+- Does order-book imbalance predict short-horizon returns out of sample?
+- How do spread and depth relate to short-term price changes?
+- How does liquidity respond to and recover from consumption?
+- How does execution cost vary with available depth?
+
+Each study should document the source data, instrument and time scope, observation and feature definitions, target horizon, temporal train/test or walk-forward split, baseline, metrics, parameter stability, limitations, and failure modes. Avoid look-ahead leakage and avoid describing an empirical association as predictive alpha without evidence.
+
+## U7. Current Repository Structure — Consolidated View
+
+The following is the consolidated target/current structure reflecting Chapters 1–12 plus the planned Chapter 13 additions. Folders marked “generated/local” normally belong in `.gitignore`; a specific benchmark JSON can be force-added if it is intentionally part of a benchmark record.
+
+```text
+hybrid-lob-simulator/
+├── cpp/
+│   ├── bindings/lob_bindings.cpp
+│   ├── include/lob/
+│   ├── src/
+│   └── app/
+├── python/
+│   ├── __init__.py
+│   ├── itch_directory.py
+│   ├── observations.py
+│   ├── datasets.py
+│   ├── backtests/historical_replay.py
+│   ├── research/
+│   ├── plots/
+│   └── lob_cpp*.pyd               # generated/local; normally ignored
+├── examples/
+│   ├── basic_simulation.py
+│   ├── historical_replay.py
+│   ├── itch_research_workflow.py
+│   ├── inspect_order_book.py
+│   ├── extract_observations.py
+│   ├── generate_dataset.py
+│   ├── calculate_features.py
+│   ├── analyze_market_data.py
+│   ├── _common.py
+│   └── README.md
+├── benchmarks/
+│   ├── benchmark.py
+│   ├── benchmark_naive.py
+│   ├── benchmark_optimized.py
+│   └── results/
+│       ├── cpp/                   # generated benchmark outputs
+│       └── python/                # generated Python benchmark outputs
+├── scripts/
+│   ├── build.sh
+│   ├── run_tests.sh
+│   ├── run_simulation.sh
+│   ├── replay_historical.sh
+│   ├── run_itch_research.sh
+│   ├── list_stocks.sh
+│   ├── run_benchmark.sh
+│   ├── run_all_examples.sh
+│   └── run_dashboard.sh
+├── web/                           # starter local dashboard frontend
+├── webapp/                        # proposed Flask backend; Chapter 13
+├── tests/
+│   ├── cpp/
+│   └── python/
+│       ├── test_bindings.py
+│       ├── test_itch_bindings.py
+│       └── test_itch_directory.py
+├── data/itch/                     # historical source data; usually ignored
+├── results/                       # generated experiment outputs; usually ignored
+├── docs/
+│   ├── architecture.md            # path/name depends on existing checkout
+│   ├── data.md
+│   ├── benchmark.md
+│   └── profiling.md
+└── pyproject.toml
+```
+
+The tree records the intended organization and may require minor filename/path reconciliation against the actual checkout. It is not an assertion that the proposed `webapp/` files have already been implemented.
+
+## U8. Final Completion Gates
+
+Before declaring the current engineering platform finished:
+
+- [ ] Run the C++ suite from the final checkout.
+- [ ] Run both Python binding tests.
+- [ ] Run the examples pack on a small known sample and one bounded real ITCH prefix.
+- [ ] Confirm the workflow's automatic per-run output folder and the explicit `--output-dir` override.
+- [ ] Run the Python feature benchmark and retain its JSON result intentionally if desired.
+- [ ] Confirm that the benchmark compares equivalent outputs and does not mix Python feature throughput with C++ engine throughput.
+- [ ] Complete the Flask dashboard, Matplotlib gallery, depth chart, liquidity heatmap and playback controls in Chapter 13.
+- [ ] Add automated tests for dashboard file handling, endpoints, plot discovery and synchronized playback.
+- [ ] Update README/setup/docs, validate ignore rules, and test the documented local launch command.
+- [ ] Commit and push the final verified code without raw ITCH data, generated binaries, virtual environments, or unintended result folders.
+
+The project is not a live trading system and does not need to become one. The target is a deterministic C++ market engine and historical reconstruction pipeline, a reusable Python research toolkit, reproducible performance measurements, and a professional local dashboard for inspecting historical displayed liquidity.
