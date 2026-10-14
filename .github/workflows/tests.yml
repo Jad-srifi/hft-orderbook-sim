@@ -22,7 +22,7 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-python
-            mingw-w64-ucrt-x86_64-python-pybind11
+            mingw-w64-ucrt-x86_64-pybind11
             mingw-w64-ucrt-x86_64-python-pytest
             mingw-w64-ucrt-x86_64-python-numpy
             mingw-w64-ucrt-x86_64-python-matplotlib
