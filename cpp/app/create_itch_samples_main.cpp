@@ -838,8 +838,22 @@ namespace
         return std::visit(
             [](const auto &msg)
             {
-                return static_cast<StockLocate>(
-                    msg.stock_locate);
+                using T =
+                    std::decay_t<decltype(msg)>;
+
+                if constexpr (
+                    requires {
+                        msg.stock_locate;
+                    })
+                {
+                    return static_cast<StockLocate>(
+                        msg.stock_locate);
+                }
+                else
+                {
+                    return static_cast<StockLocate>(
+                        0);
+                }
             },
             message);
     }
