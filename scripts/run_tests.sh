@@ -16,7 +16,11 @@ export PYTHONPATH="$ROOT/python${PYTHONPATH:+:$PYTHONPATH}"
 "$ROOT/scripts/build.sh"
 
 printf '\nRunning Python tests...\n'
-"$PYTHON" -m pytest -q tests/python
+PYTHON_TEST_PATHS=(tests/python)
+if [[ -d "$ROOT/tests/dashboard" ]]; then
+    PYTHON_TEST_PATHS+=(tests/dashboard)
+fi
+"$PYTHON" -m pytest -q "${PYTHON_TEST_PATHS[@]}"
 
 printf '\nRunning C++ tests...\n'
 shopt -s nullglob

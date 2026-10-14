@@ -525,21 +525,21 @@ void test_unknown_message_type()
 
     assert(
         is_parse_error(
-            std::vector<Byte>{'P'},
+            std::vector<Byte>{'0'},
             ParseError::UnknownMessageType
         )
     );
 
     assert(
         is_parse_error(
-            std::vector<Byte>{'Q'},
+            std::vector<Byte>{'?'},
             ParseError::UnknownMessageType
         )
     );
 
     assert(
         is_parse_error(
-            std::vector<Byte>{'B'},
+            std::vector<Byte>{'%'},
             ParseError::UnknownMessageType
         )
     );

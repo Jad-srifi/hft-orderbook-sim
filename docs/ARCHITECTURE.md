@@ -110,7 +110,7 @@ sequenceDiagram
     Note over Replay,Book: No synthetic re-matching of historical executions
 ```
 
-The current C++ reader expects a **decompressed binary ITCH `.txt` file**, not a gzip stream. See [Data and ITCH replay](data.md) for message mapping, filter behavior, counters, snapshot semantics, and the known dashboard upload-format mismatch.
+The current C++ reader expects a **decompressed binary ITCH `.txt` file**, not a gzip stream. See [Data and ITCH replay](DATA.md) for message mapping, filter behavior, counters, snapshot semantics, and the known dashboard upload-format mismatch.
 
 ## 7. Research and dashboard path
 
@@ -124,9 +124,9 @@ Dashboard output is written under `results/dashboard/` by default. The configure
 
 ## 8. Performance findings
 
-A recorded end-to-end ITCH run processed 302,347,067 historical messages in about 400.13 seconds (approximately 755,622 messages/second) in the measured environment. This is a historical reference point, not a guarantee for another computer, compiler, dataset, filter, build configuration, or dashboard run. See [Benchmarks](benchmark.md).
+A recorded end-to-end ITCH run processed 302,347,067 historical messages in about 400.13 seconds (approximately 755,622 messages/second) in the measured environment. This is a historical reference point, not a guarantee for another computer, compiler, dataset, filter, build configuration, or dashboard run. See [Benchmarks](BENCHMARK.md).
 
-Profiling identified two important workload-specific costs: order-index repair after vector erasure in removal-heavy paths, and repeated price-level sorting in synthetic ADD-heavy workloads. These are documented findings, not claims that either cost has been eliminated. See [Profiling](profiling.md).
+Profiling identified two important workload-specific costs: order-index repair after vector erasure in removal-heavy paths, and repeated price-level sorting in synthetic ADD-heavy workloads. These are documented findings, not claims that either cost has been eliminated. See [Profiling](PROFILING.md).
 
 ## 9. Correctness and release checks
 
@@ -139,12 +139,12 @@ The test runner builds and invokes the native test executables and runs `pytest`
 - Do not commit large raw ITCH feeds or generated result trees unless their provenance, size, redistribution rights, and intended use have been reviewed.
 - Treat uploaded files and generated artifacts as untrusted input. Keep the dashboard local and respect its size/workload bounds.
 - Do not claim that `pybind11` alone proves “zero-copy” behavior. Make performance claims only when the relevant code path and benchmark establish them.
-- The root `LICENSE` is authoritative. The public `main` branch checked on 2026-10-14 still contained an MIT license. If moving to PolyForm Noncommercial 1.0.0, replace the root license and synchronize the README and GitHub license metadata before describing that restriction as active. Commercial terms/pricing require a separate written agreement; a future license change does not automatically revoke permissions already granted for old MIT-licensed copies.
+- The root `LICENSE` is authoritative and currently contains the PolyForm Noncommercial License 1.0.0; the README badge and license summary should remain synchronized with that file. This license is not OSI-approved open source. Do not describe commercial use as permitted without separate written permission, and do not imply that this change retroactively removes rights granted under earlier license versions.
 
 ## Related documents
 
-- [Data and ITCH replay](data.md)
-- [Benchmarks](benchmark.md)
-- [Profiling](profiling.md)
+- [Data and ITCH replay](DATA.md)
+- [Benchmarks](BENCHMARK.md)
+- [Profiling](PROFILING.md)
 - [Documentation index](README.md)
 - [Project README](../README.md)

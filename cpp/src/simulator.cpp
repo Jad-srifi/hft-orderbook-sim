@@ -92,7 +92,10 @@ void Simulator::process_event(const Event &event)
         {
             LOB_PROFILE_SCOPE("Simulator::process_event::CANCEL::order_book_cancel");
 
-            this->order_book.cancel(event.order_id);
+            if (!this->order_book.cancel(event.order_id))
+            {
+                return;
+            }
         }
     }
 
@@ -103,10 +106,13 @@ void Simulator::process_event(const Event &event)
         {
             LOB_PROFILE_SCOPE("Simulator::process_event::MODIFY::order_book_modify");
 
-            this->order_book.modify(
-                event.order_id,
-                event.new_price,
-                event.new_quantity);
+            if (!this->order_book.modify(
+                    event.order_id,
+                    event.new_price,
+                    event.new_quantity))
+            {
+                return;
+            }
         }
     }
 

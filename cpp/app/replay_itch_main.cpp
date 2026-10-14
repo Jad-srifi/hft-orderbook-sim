@@ -33,10 +33,10 @@ static void print_usage()
         << "  replay_itch_main <file> <stock_locate> all\n\n"
         << "Examples:\n"
         << "  replay_itch_main "
-        << "data/itch/2019-10-18/raw/decompressed/S101819-v50.txt "
+        << "data/itch/2019-10-18/decompressed/S101819-v50.txt "
         << "123 1000\n\n"
         << "  replay_itch_main "
-        << "data/itch/2019-10-18/raw/decompressed/S101819-v50.txt "
+        << "data/itch/2019-10-18/decompressed/S101819-v50.txt "
         << "123 all\n";
 }
 
