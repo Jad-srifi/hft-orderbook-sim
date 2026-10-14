@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -10,7 +9,7 @@ TEST_OBJ_DIR="$BUILD_DIR/test_obj"
 PYTHON_DIR="$ROOT/python"
 CXX="${CXX:-g++}"
 PYTHON="${PYTHON:-python}"
-CXXFLAGS=(-std=c++17 -Wall -Wextra -pedantic -O2)
+CXXFLAGS=(-std=c++20 -Wall -Wextra -pedantic -O2)
 
 if [[ "${MSYSTEM:-}" != "UCRT64" ]]; then
     printf 'Error: run this script from the MSYS2 UCRT64 terminal. MSYSTEM=%s\n' "${MSYSTEM:-unset}" >&2
