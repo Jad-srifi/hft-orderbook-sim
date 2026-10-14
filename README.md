@@ -60,48 +60,47 @@ The labels below describe the scope represented by the checked-in implementation
 
 ## A visual tour
 
-The cards below are **intentional media placeholders**, not screenshots of the application. Replace them with real images or a short screen recording after running the project. The companion ZIP includes the placeholder assets at the paths used here.
+The images below are repository media assets. Select an image to open it at full size; select the video thumbnail to open the project walkthrough on YouTube.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/dashboard-overview-placeholder.svg">
+      <a href="docs/media/dashboard-overview.jpg">
         <img src="docs/media/dashboard-overview.jpg"
-             alt="Dashboard overview placeholder"
+             alt="Dashboard overview"
              width="100%">
       </a>
       <strong>1. Dashboard overview</strong>
-      <p>Replace with a screenshot of the running research dashboard.</p>
+      <p>Open the dashboard overview image.</p>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/media/order-book-depth-placeholder.svg">
+      <a href="docs/media/order-book-depth.jpg">
         <img src="docs/media/order-book-depth.jpg"
-             alt="Order-book depth visualization placeholder"
+             alt="Order-book depth visualization"
              width="100%">
       </a>
       <strong>2. Order-book depth</strong>
-      <p>Replace with an actual bid/ask depth chart or replay plot.</p>
+      <p>Open the order-book depth visualization.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/research-results-placeholder.svg">
+      <a href="docs/media/research-results.jpg">
         <img src="docs/media/research-results.jpg"
-             alt="Research outputs placeholder"
+             alt="Research outputs"
              width="100%">
       </a>
       <strong>3. Research outputs</strong>
-      <p>Replace with genuine analysis plots and output artifacts.</p>
+      <p>Open the research-results image.</p>
     </td>
     <td width="50%" valign="top">
-      <a href="https://youtu.be/rBas32Tus-Y">
-        <img src="docs/media/replay-video.mp4"
-             alt="Click to watch the simulator walkthrough"
+      <a href="https://www.youtube.com/watch?v=rBas32Tus-Y">
+        <img src="https://img.youtube.com/vi/rBas32Tus-Y/hqdefault.jpg"
+             alt="Watch the hybrid limit order book simulator walkthrough on YouTube"
              width="100%">
       </a>
       <strong>4. Watch the project walkthrough</strong>
-      <p>Click the thumbnail to watch a 30–90 second demonstration.
-      Replace the YouTube URL with your actual video link.</p>
+      <p><a href="https://youtu.be/rBas32Tus-Y">Watch the walkthrough on YouTube</a>.</p>
     </td>
   </tr>
 </table>
@@ -203,11 +202,11 @@ Install the Python-side packages in that **same environment**:
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install pybind11 pytest numpy matplotlib
+python -m pip install -r requirements.txt
 python -m pip install -r webapp/requirements.txt
 ```
 
-`pyproject.toml` records the project metadata and Python minimum, but its declared dependency list is empty and it does not by itself compile the C++ extension. The dashboard's explicit requirements are in `webapp/requirements.txt` (`Flask` and `matplotlib`). The commands above also install packages used by the examples and tests.
+`pyproject.toml` records the project metadata and Python minimum, but its declared dependency list is empty and it does not by itself compile the C++ extension. The dashboard's explicit requirements are in `webapp/requirements.txt` (`Flask` and `matplotlib`). The root requirements file includes the build, research, plotting, and test dependencies; the dashboard requirements file documents the dashboard runtime dependencies.
 
 ### 2. Get the project
 
@@ -678,7 +677,7 @@ The integer price convention avoids binary floating-point errors in the core quo
 ./scripts/run_tests.sh
 ```
 
-This script first rebuilds the applications/tests/extension, then runs `pytest` over `tests/python`, then executes the generated C++ test binaries. Run it from the **MSYS2 UCRT64** terminal.
+This script rebuilds the applications/tests/extension, runs the Python research/binding tests and Flask dashboard tests, then executes the generated C++ test binaries. Run it from the **MSYS2 UCRT64** terminal. The ITCH binding integration tests are automatically skipped when the local historical feed is unavailable and run when the expected decompressed file is present.
 
 **Data requirement:** `tests/python/test_itch_bindings.py` expects the decompressed ITCH file at `data/itch/2019-10-18/raw/decompressed/S101819-v50.txt`. Because `data/` is intentionally ignored and the feed is not part of the code checkout, provision the permitted dataset at that path before running the full Python suite. Without it, the ITCH integration test cannot pass. A no-data smoke test for the non-ITCH bindings can be run after building with:
 
@@ -744,10 +743,11 @@ hft-orderbook-sim/
 ├── docs/
 │   ├── ARCHITECTURE.md          # detailed architecture/design reference
 |   ├── ...                      # detailed implementation of other areas
-│   └── media/                   # README media placeholders in this package
+│   └── media/                   # README images and walkthrough media
 ├── data/                        # local feed files; intentionally Git-ignored
 ├── results/                     # generated outputs; intentionally Git-ignored
 ├── pyproject.toml               # project metadata / pytest configuration
+├── requirements.txt             # build, research, plotting, and test dependencies
 ├── LICENSE                      # PolyForm Noncommercial License 1.0.0
 └── README.md
 ```
