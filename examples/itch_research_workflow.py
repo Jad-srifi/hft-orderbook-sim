@@ -24,7 +24,6 @@ from itch_directory import print_stock_directory
 
 
 DEFAULT_ITCH_CANDIDATES = (
-    ROOT / "data" / "itch" / "2019-10-18" / "raw" / "decompressed" / "S101819-v50.txt",
     ROOT / "data" / "itch" / "2019-10-18" / "decompressed" / "S101819-v50.txt",
     ROOT / "data" / "itch" / "2019-10-18" / "raw" / "S101819-v50.txt.gz",
 )
