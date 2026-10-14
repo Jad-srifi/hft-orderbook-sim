@@ -110,7 +110,7 @@ sequenceDiagram
     Note over Replay,Book: No synthetic re-matching of historical executions
 ```
 
-The current C++ reader expects a **decompressed binary ITCH `.txt` file**, not a gzip stream. See [Data and ITCH replay](DATA.md) for message mapping, filter behavior, counters, snapshot semantics, and the known dashboard upload-format mismatch.
+The current C++ reader expects a **decompressed binary ITCH `.txt` file**, not a gzip stream. See [Data and ITCH replay](data.md) for message mapping, filter behavior, counters, snapshot semantics, and the known dashboard upload-format mismatch.
 
 ## 7. Research and dashboard path
 
@@ -124,9 +124,9 @@ Dashboard output is written under `results/dashboard/` by default. The configure
 
 ## 8. Performance findings
 
-A recorded end-to-end ITCH run processed 302,347,067 historical messages in about 400.13 seconds (approximately 755,622 messages/second) in the measured environment. This is a historical reference point, not a guarantee for another computer, compiler, dataset, filter, build configuration, or dashboard run. See [Benchmarks](BENCHMARK.md).
+A recorded end-to-end ITCH run processed 302,347,067 historical messages in about 400.13 seconds (approximately 755,622 messages/second) in the measured environment. This is a historical reference point, not a guarantee for another computer, compiler, dataset, filter, build configuration, or dashboard run. See [Benchmarks](benchmark.md).
 
-Profiling identified two important workload-specific costs: order-index repair after vector erasure in removal-heavy paths, and repeated price-level sorting in synthetic ADD-heavy workloads. These are documented findings, not claims that either cost has been eliminated. See [Profiling](PROFILING.md).
+Profiling identified two important workload-specific costs: order-index repair after vector erasure in removal-heavy paths, and repeated price-level sorting in synthetic ADD-heavy workloads. These are documented findings, not claims that either cost has been eliminated. See [Profiling](profiling.md).
 
 ## 9. Correctness and release checks
 
@@ -143,8 +143,8 @@ The test runner builds and invokes the native test executables and runs `pytest`
 
 ## Related documents
 
-- [Data and ITCH replay](DATA.md)
-- [Benchmarks](BENCHMARK.md)
-- [Profiling](PROFILING.md)
+- [Data and ITCH replay](data.md)
+- [Benchmarks](benchmark.md)
+- [Profiling](profiling.md)
 - [Documentation index](README.md)
 - [Project README](../README.md)
