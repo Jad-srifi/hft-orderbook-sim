@@ -95,13 +95,12 @@ The cards below are **intentional media placeholders**, not screenshots of the a
     </td>
     <td width="50%" valign="top">
       <a href="https://youtu.be/rBas32Tus-Y">
-        <img src="docs/media/replay-video.mp4"
-             alt="Click to watch the simulator walkthrough"
+        <img src="https://img.youtube.com/vi/rBas32Tus-Y/hqdefault.jpg"
+             alt="Watch the simulator walkthrough on YouTube"
              width="100%">
       </a>
       <strong>4. Watch the project walkthrough</strong>
-      <p>Click the thumbnail to watch a 30–90 second demonstration.
-      Replace the YouTube URL with your actual video link.</p>
+      <p>Click the thumbnail to watch the project walkthrough on YouTube.</p>
     </td>
   </tr>
 </table>
