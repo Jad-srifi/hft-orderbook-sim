@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_DIR = PROJECT_ROOT / "python"
 
@@ -17,6 +19,11 @@ ITCH_FILE = (
     / "raw"
     / "decompressed"
     / "S101819-v50.txt"
+)
+
+pytestmark = pytest.mark.skipif(
+    not ITCH_FILE.is_file(),
+    reason="Optional Nasdaq ITCH dataset is not available in this checkout.",
 )
 
 
@@ -181,6 +188,13 @@ def test_replay():
 
 
 def main():
+    if not ITCH_FILE.is_file():
+        print(
+            "Skipping ITCH binding tests: optional Nasdaq ITCH dataset is not "
+            f"available at {ITCH_FILE}."
+        )
+        return
+
     test_file_reader()
     test_parser()
     test_parse_add_order_message()
