@@ -594,4 +594,4 @@ Plotting and Playback
 Interactive Research Dashboard
 ```
 
-The plotting package should remain modular, testable, and separate from market mechanics. This keeps the current static charts reusable while remaining reusable by the current local browser-based research dashboard.
+The plotting package should remain modular, testable, and separate from market mechanics. Its static charts remain reusable by Python research workflows, while the Flask dashboard provides a separate browser-based interface.
