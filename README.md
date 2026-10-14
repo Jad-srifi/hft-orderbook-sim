@@ -4,7 +4,7 @@
 
 **A market-microstructure research workbench: C++ order-book mechanics, historical Nasdaq ITCH reconstruction, Python analysis, and a local visual dashboard.**
 
-[![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/17)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/20)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-local%20dashboard-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-orange.svg)](LICENSE)
@@ -33,7 +33,7 @@ You do **not** need to understand every source file before using the project. Pi
 
 This repository combines:
 
-- A **C++17 limit order book** with price-time priority, order tracking, modification, cancellation, and matching.
+- A **C++20 limit order book** with price-time priority, order tracking, modification, cancellation, and matching.
 - A **deterministic event-driven simulator** for hypothetical order events.
 - Read-only market-microstructure metrics, execution/slippage analysis, and inventory/cash/P&L accounting.
 - A **Nasdaq TotalView-ITCH 5.0** binary parser, mapper, and replay path that reconstructs the displayed book from historical messages.
@@ -60,12 +60,12 @@ The labels below describe the scope represented by the checked-in implementation
 
 ## A visual tour
 
-The cards below are **intentional media placeholders**, not screenshots of the application. Replace them with real images or a short screen recording after running the project. The companion ZIP includes the placeholder assets at the paths used here.
+The images below are illustrative project media, not performance evidence. Treat any placeholder artwork as a placeholder rather than a screenshot of a running application.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/dashboard-overview-placeholder.svg">
+      <a href="docs/media/dashboard-overview.jpg">
         <img src="docs/media/dashboard-overview.jpg"
              alt="Dashboard overview placeholder"
              width="100%">
@@ -74,7 +74,7 @@ The cards below are **intentional media placeholders**, not screenshots of the a
       <p>Replace with a screenshot of the running research dashboard.</p>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/media/order-book-depth-placeholder.svg">
+      <a href="docs/media/order-book-depth.jpg">
         <img src="docs/media/order-book-depth.jpg"
              alt="Order-book depth visualization placeholder"
              width="100%">
@@ -85,7 +85,7 @@ The cards below are **intentional media placeholders**, not screenshots of the a
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/research-results-placeholder.svg">
+      <a href="docs/media/research-results.jpg">
         <img src="docs/media/research-results.jpg"
              alt="Research outputs placeholder"
              width="100%">
@@ -184,7 +184,7 @@ The checked-in build script intentionally requires **MSYS2 UCRT64**. Use one con
 
 Install MSYS2, then open the **MSYS2 UCRT64** terminal (not MSYS, not MINGW64, and not a generic PowerShell window). Make sure the terminal provides:
 
-- `g++` with C++17 support;
+- `g++` with C++20 support;
 - Python **3.14 or newer** from the same UCRT64 environment;
 - the Python development library that matches that interpreter;
 - `pip`, `pybind11`, `pytest`, `numpy`, and `matplotlib`.
@@ -223,7 +223,7 @@ Run the remaining commands from the repository root in the UCRT64 terminal.
 ./scripts/build.sh
 ```
 
-The script compiles the C++ sources with C++17, warnings enabled, and `-O2`; then it builds the example/replay/benchmark/profile executables, C++ test executables, and the `lob_cpp` Python extension. It ends by trying to import the extension with the selected Python interpreter.
+The script compiles the C++ sources with C++20, warnings enabled, and `-O2`; then it builds the example/replay/benchmark/profile executables, C++ test executables, and the `lob_cpp` Python extension. It ends by trying to import the extension with the selected Python interpreter.
 
 Expected build outputs include:
 
@@ -404,7 +404,7 @@ Read the numbers correctly:
 The example's defaults expect the historical file at one of these locations, checked in order:
 
 ```text
-data/itch/2019-10-18/raw/decompressed/S101819-v50.txt
+data/itch/2019-10-18/decompressed/S101819-v50.txt
 data/itch/2019-10-18/decompressed/S101819-v50.txt
 data/itch/2019-10-18/raw/S101819-v50.txt.gz
 ```
@@ -415,7 +415,7 @@ Run a small bounded experiment first:
 
 ```bash
 python examples/itch_research_workflow.py \
-  --file data/itch/2019-10-18/raw/decompressed/S101819-v50.txt \
+  --file data/itch/2019-10-18/decompressed/S101819-v50.txt \
   --stock-locate 123 \
   --max-messages 100000 \
   --snapshot-interval 10 \
@@ -438,7 +438,7 @@ To list securities in the source file:
 
 ```bash
 python examples/itch_research_workflow.py \
-  --file data/itch/2019-10-18/raw/decompressed/S101819-v50.txt \
+  --file data/itch/2019-10-18/decompressed/S101819-v50.txt \
   --list-stocks
 ```
 
@@ -538,7 +538,7 @@ int main() {
 The public header directory is `cpp/include/lob/`. The build script is the canonical project build route. After running `./scripts/build.sh`, the core object files are available under `build/obj/`; you can compile this snippet when saved as `examples/quickstart.cpp` from the repository root:
 
 ```bash
-g++ -std=c++17 -Wall -Wextra -pedantic -O2 \
+g++ -std=c++20 -Wall -Wextra -pedantic -O2 \
   -Icpp/include/lob \
   examples/quickstart.cpp build/obj/*.o \
   -o build/quickstart.exe
@@ -553,7 +553,7 @@ The C++ replay tool accepts a file, Stock Locate, and either a count or `all`:
 
 ```bash
 ./build/replay_itch_main.exe \
-  data/itch/2019-10-18/raw/decompressed/S101819-v50.txt \
+  data/itch/2019-10-18/decompressed/S101819-v50.txt \
   123 \
   1000
 ```
@@ -638,7 +638,7 @@ A snapshot is **not** created for every raw ITCH message. `snapshot_interval` co
 The example and the ITCH binding test expect a local copy at:
 
 ```text
-data/itch/2019-10-18/raw/decompressed/S101819-v50.txt
+data/itch/2019-10-18/decompressed/S101819-v50.txt
 ```
 
 The repository's ignore rules exclude the `data/` directory and raw ITCH binaries. Obtain the file from a source you are authorized to use, follow that provider's terms, and decompress a `.gz` source before passing it to the current C++ reader. Do not commit a large historical feed to Git just to make a local test pass.
@@ -677,9 +677,9 @@ The integer price convention avoids binary floating-point errors in the core quo
 ./scripts/run_tests.sh
 ```
 
-This script rebuilds the applications/tests/extension, runs the Python research/binding tests and Flask dashboard tests, then executes the generated C++ test binaries. Run it from the **MSYS2 UCRT64** terminal. The ITCH binding integration tests are automatically skipped when the local historical feed is unavailable and run when the expected decompressed file is present.
+This script rebuilds the C++ applications, test executables, and `lob_cpp` extension; runs the Python tests under `tests/python` and, if present, `tests/dashboard`; then executes each generated C++ test binary. Run it from the **MSYS2 UCRT64** terminal. ITCH integration tests skip when the optional local historical feed is absent and run when the expected decompressed file is present.
 
-**Optional ITCH data:** `tests/python/test_itch_bindings.py` uses the decompressed ITCH file at `data/itch/2019-10-18/raw/decompressed/S101819-v50.txt`. Because `data/` is intentionally ignored and the feed is not part of the code checkout, those integration tests are automatically skipped with an explicit reason when the file is absent. To run them, supply a permitted dataset at that path. A no-data smoke test for the non-ITCH bindings can also be run after building with:
+**Optional ITCH data:** `tests/python/test_itch_bindings.py` uses the decompressed ITCH file at `data/itch/2019-10-18/decompressed/S101819-v50.txt`. Because `data/` is intentionally ignored and the feed is not part of the code checkout, those integration tests are automatically skipped with an explicit reason when the file is absent. To run them, supply a permitted dataset at that path. A no-data smoke test for the non-ITCH bindings can also be run after building with:
 
 ```bash
 python -m pytest -q tests/python/test_bindings.py
@@ -796,7 +796,7 @@ Verify the Stock Locate for your feed, increase the raw message limit, and consi
 
 ### `tests/python/test_itch_bindings.py` fails because the data file is missing
 
-The test expects `data/itch/2019-10-18/raw/decompressed/S101819-v50.txt`. Supply a data file you are licensed to use at that path, or run the no-ITCH binding smoke test separately while developing unrelated code.
+The test expects `data/itch/2019-10-18/decompressed/S101819-v50.txt`. Supply a data file you are licensed to use at that path, or run the no-ITCH binding smoke test separately while developing unrelated code.
 
 ### Dashboard run fails after upload
 
