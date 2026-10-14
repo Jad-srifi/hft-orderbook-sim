@@ -10,6 +10,7 @@
 
 struct Simulator
 {
+    Simulator();
     Simulator(Cash initial_cash);
 
     OrderBook order_book;
