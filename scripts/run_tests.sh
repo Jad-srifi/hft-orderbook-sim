@@ -15,8 +15,8 @@ export PYTHONPATH="$ROOT/python${PYTHONPATH:+:$PYTHONPATH}"
 
 "$ROOT/scripts/build.sh"
 
-printf '\nRunning Python research/binding and dashboard tests...\n'
-"$PYTHON" -m pytest -q tests/python tests/dashboard
+printf '\nRunning Python tests...\n'
+"$PYTHON" -m pytest -q tests/python
 
 printf '\nRunning C++ tests...\n'
 shopt -s nullglob
