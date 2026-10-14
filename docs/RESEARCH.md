@@ -638,6 +638,14 @@ The current feature utilities do not enforce a particular time horizon, purge ov
 
 ## 14. Testing
 
+The research statistics module imports NumPy. The root `pyproject.toml` currently declares no runtime dependencies, so install NumPy if it is not already available:
+
+```bash
+python -m pip install numpy
+```
+
+The research tests also import `lob_cpp`; build the C++ extension and ensure it is importable before running the suite.
+
 All current research tests are grouped in:
 
 ```text
@@ -656,7 +664,7 @@ Run the entire Python suite:
 python -m pytest tests/python
 ```
 
-The current grouped research suite contains 50 tests, and the project has reached a passing result for those tests.
+The current `tests/python/test_research.py` file contains **61 test functions** on the audited `main` branch. This is a source count, not a claim that the suite was executed during this documentation audit. Run the commands above in your configured environment to verify the current result.
 
 Tests cover the current microstructure, feature, execution-analysis, statistics, slippage, inventory, and market-state-comparison functions.
 
