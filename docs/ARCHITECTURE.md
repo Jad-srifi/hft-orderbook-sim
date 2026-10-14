@@ -132,7 +132,7 @@ Profiling identified two important workload-specific costs: order-index repair a
 
 Use the repository scripts from the intended MSYS2 UCRT64 environment. At minimum, the release check should rebuild the extension and native tests, run the Python and C++ suites, exercise a small known synthetic example, replay a bounded prefix of a real decompressed ITCH file, and run the dashboard through one successful and one invalid-input case.
 
-The test runner currently builds and invokes the native test executables and runs `pytest` under `tests/python`; it requires `MSYSTEM=UCRT64`. A successful run only establishes the behavior covered by those tests, not exchange fidelity beyond the implemented message subset, trading profitability, or production suitability.
+The test runner builds and invokes the native test executables and runs `pytest` under both `tests/python` and `tests/dashboard`; it requires `MSYSTEM=UCRT64`. A successful run only establishes the behavior covered by those tests, not exchange fidelity beyond the implemented message subset, trading profitability, or production suitability.
 
 ## 10. Data, security, and licensing boundaries
 

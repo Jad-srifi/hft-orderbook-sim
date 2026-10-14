@@ -1,0 +1,10 @@
+# Build and Python-extension dependencies
+pybind11>=2.13
+pytest>=8.0
+
+# Research and plotting dependencies
+numpy>=2.0
+matplotlib>=3.8
+
+# Local Flask research dashboard
+Flask>=3.0,<4.0
