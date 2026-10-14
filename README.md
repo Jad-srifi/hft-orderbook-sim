@@ -679,7 +679,7 @@ The integer price convention avoids binary floating-point errors in the core quo
 
 This script rebuilds the applications/tests/extension, runs the Python research/binding tests and Flask dashboard tests, then executes the generated C++ test binaries. Run it from the **MSYS2 UCRT64** terminal. The ITCH binding integration tests are automatically skipped when the local historical feed is unavailable and run when the expected decompressed file is present.
 
-**Data requirement:** `tests/python/test_itch_bindings.py` expects the decompressed ITCH file at `data/itch/2019-10-18/raw/decompressed/S101819-v50.txt`. Because `data/` is intentionally ignored and the feed is not part of the code checkout, provision the permitted dataset at that path before running the full Python suite. Without it, the ITCH integration test cannot pass. A no-data smoke test for the non-ITCH bindings can be run after building with:
+**Optional ITCH data:** `tests/python/test_itch_bindings.py` uses the decompressed ITCH file at `data/itch/2019-10-18/raw/decompressed/S101819-v50.txt`. Because `data/` is intentionally ignored and the feed is not part of the code checkout, those integration tests are automatically skipped with an explicit reason when the file is absent. To run them, supply a permitted dataset at that path. A no-data smoke test for the non-ITCH bindings can also be run after building with:
 
 ```bash
 python -m pytest -q tests/python/test_bindings.py
@@ -739,10 +739,11 @@ hft-orderbook-sim/
 ├── webapp/                      # Flask application, routes, services, requirements
 ├── tests/
 │   ├── cpp/                     # C++ test sources
-│   └── python/                  # Python binding, replay, and workflow tests
+│   ├── python/                  # Python binding, replay, and workflow tests
+│   └── dashboard/               # Flask route and service tests
 ├── docs/
+│   ├── README.md                # documentation index
 │   ├── ARCHITECTURE.md          # detailed architecture/design reference
-|   ├── ...                      # detailed implementation of other areas
 │   └── media/                   # README images and walkthrough media
 ├── data/                        # local feed files; intentionally Git-ignored
 ├── results/                     # generated outputs; intentionally Git-ignored
