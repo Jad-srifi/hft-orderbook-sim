@@ -60,47 +60,48 @@ The labels below describe the scope represented by the checked-in implementation
 
 ## A visual tour
 
-The images below are repository media assets. Select an image to open it at full size; select the video thumbnail to open the project walkthrough on YouTube.
+The cards below are **intentional media placeholders**, not screenshots of the application. Replace them with real images or a short screen recording after running the project. The companion ZIP includes the placeholder assets at the paths used here.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/dashboard-overview.jpg">
+      <a href="docs/media/dashboard-overview-placeholder.svg">
         <img src="docs/media/dashboard-overview.jpg"
-             alt="Dashboard overview"
+             alt="Dashboard overview placeholder"
              width="100%">
       </a>
       <strong>1. Dashboard overview</strong>
-      <p>Open the dashboard overview image.</p>
+      <p>Replace with a screenshot of the running research dashboard.</p>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/media/order-book-depth.jpg">
+      <a href="docs/media/order-book-depth-placeholder.svg">
         <img src="docs/media/order-book-depth.jpg"
-             alt="Order-book depth visualization"
+             alt="Order-book depth visualization placeholder"
              width="100%">
       </a>
       <strong>2. Order-book depth</strong>
-      <p>Open the order-book depth visualization.</p>
+      <p>Replace with an actual bid/ask depth chart or replay plot.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/media/research-results.jpg">
+      <a href="docs/media/research-results-placeholder.svg">
         <img src="docs/media/research-results.jpg"
-             alt="Research outputs"
+             alt="Research outputs placeholder"
              width="100%">
       </a>
       <strong>3. Research outputs</strong>
-      <p>Open the research-results image.</p>
+      <p>Replace with genuine analysis plots and output artifacts.</p>
     </td>
     <td width="50%" valign="top">
-      <a href="https://www.youtube.com/watch?v=rBas32Tus-Y">
-        <img src="https://img.youtube.com/vi/rBas32Tus-Y/hqdefault.jpg"
-             alt="Watch the hybrid limit order book simulator walkthrough on YouTube"
+      <a href="https://youtu.be/rBas32Tus-Y">
+        <img src="docs/media/replay-video.mp4"
+             alt="Click to watch the simulator walkthrough"
              width="100%">
       </a>
       <strong>4. Watch the project walkthrough</strong>
-      <p><a href="https://youtu.be/rBas32Tus-Y">Watch the walkthrough on YouTube</a>.</p>
+      <p>Click the thumbnail to watch a 30–90 second demonstration.
+      Replace the YouTube URL with your actual video link.</p>
     </td>
   </tr>
 </table>
