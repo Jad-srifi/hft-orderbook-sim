@@ -1,20 +1,35 @@
+
 from __future__ import annotations
 
 import random
 from pathlib import Path
 from typing import Any, Callable
 
-ProgressCallback = Callable[[int, int | None, int, int], None]
+ProgressCallback = Callable[
+    [int, int | None, int, int, dict[str, int]],
+    None,
+]
+
+_COUNTER_NAMES = (
+    "applied_messages",
+    "ignored_different_stock_locate",
+    "non_applied_messages",
+    "failed_applications",
+    "parse_errors",
+    "mapping_errors",
+)
 
 
 def _is_alternative(value: Any, name: str, api: Any) -> bool:
     candidate = getattr(api, name, None)
+
     if isinstance(candidate, type):
         try:
             if isinstance(value, candidate):
                 return True
         except TypeError:
             pass
+
     return type(value).__name__ == name
 
 
@@ -51,7 +66,7 @@ def _level_rows(
 
     rows.sort(key=lambda item: item["price"], reverse=descending)
 
-    # Keep one extra level so the replay serializer can truthfully flag truncation.
+    # Keep one extra level so the serializer can detect truncation.
     return rows[: keep + 1], total_quantity
 
 
@@ -130,7 +145,6 @@ class _SnapshotReservoir:
             return [self.first]
 
         target_interior = self.capacity - 2
-
         interior = [
             item
             for item in self.reservoir
@@ -140,25 +154,21 @@ class _SnapshotReservoir:
         if target_interior <= 0:
             interior = []
         elif len(interior) > target_interior:
-            # Evenly thin the bounded reservoir while retaining temporal coverage.
-            n = len(interior)
-
+            count = len(interior)
             indices = (
                 sorted(
                     {
-                        round(i * (n - 1) / (target_interior - 1))
+                        round(i * (count - 1) / (target_interior - 1))
                         for i in range(target_interior)
                     }
                 )
                 if target_interior > 1
-                else [n - 1]
+                else [count - 1]
             )
-
             interior = [interior[i] for i in indices]
 
         combined = [self.first, *interior, last]
         combined.sort(key=lambda item: item["message_index"])
-
         return combined[: self.capacity]
 
 
@@ -172,26 +182,26 @@ def run_bounded_itch_replay(
     max_snapshots: int,
     progress_callback: ProgressCallback | None = None,
 ) -> tuple[list[dict[str, Any]], int, int]:
-    """Replay raw ITCH messages, sampling after every N successful book operations.
+    """Replay ITCH, sampling after N successful selected-stock book operations.
 
-    max_messages counts raw feed messages, including messages for other securities.
-    snapshot_interval counts successful ItchReplay.apply() calls for the selected security.
-    Snapshot message_index remains the position in the raw feed.
+    max_messages counts raw messages consumed, including messages for other stocks.
+    snapshot_interval counts successful ItchReplay.apply() calls.
+    message_index is the raw-feed position.
     Snapshot retention is bounded by max_snapshots.
     """
+
     if max_messages is not None and max_messages < 1:
         raise ValueError("max_messages must be at least 1 or None for the full file")
-
     if snapshot_interval < 1:
         raise ValueError("snapshot_interval must be at least 1")
-
     if levels_per_side < 1:
         raise ValueError("levels_per_side must be at least 1")
-
     if max_snapshots < 1:
         raise ValueError("max_snapshots must be at least 1")
 
-    if Path(file_path).suffix.lower() == ".gz":
+    path = Path(file_path)
+
+    if path.suffix.lower() == ".gz":
         raise ValueError(
             "The current C++ ItchFileReader reads binary ITCH .txt files, "
             "not gzip streams. Use the decompressed .txt file."
@@ -205,23 +215,40 @@ def run_bounded_itch_replay(
             "UCRT64 Python used to build the extension."
         ) from exc
 
-    reader = api.ItchFileReader(str(Path(file_path)))
+    reader = api.ItchFileReader(str(path))
     order_book = api.OrderBook()
     mapper = api.ItchMapper(int(stock_locate))
     replay = api.ItchReplay(order_book)
     retained = _SnapshotReservoir(max_snapshots)
 
+    counters = {name: 0 for name in _COUNTER_NAMES}
     latest_snapshot: dict[str, Any] | None = None
+
     messages_read = 0
     applied_operations = 0
     last_snapshot_operation = 0
     last_applied_timestamp: Any = None
     last_applied_message = 0
 
-    progress_every = max(
-        1_000,
-        min(100_000, (max_messages or 10_000_000) // 100),
-    )
+    # Frequent enough to keep the UI alive, without writing metadata per message.
+    progress_every = 1_000
+
+    def report_progress(percent: int) -> None:
+        if progress_callback is None:
+            return
+
+        progress_callback(
+            messages_read,
+            max_messages,
+            retained.seen,
+            percent,
+            {
+                **counters,
+                "messages_accounted": sum(counters.values()),
+            },
+        )
+
+    report_progress(8)
 
     while max_messages is None or messages_read < max_messages:
         read_result = reader.next_message()
@@ -229,7 +256,9 @@ def run_bounded_itch_replay(
         if _is_alternative(read_result, "EndOfFile", api):
             break
 
+        # Reader errors are not counted as consumed messages.
         if _is_alternative(read_result, "FileReaderError", api):
+            report_progress(68)
             raise RuntimeError(
                 f"ITCH file-reader error after {messages_read:,} messages: "
                 f"{read_result!r}"
@@ -237,76 +266,87 @@ def run_bounded_itch_replay(
 
         messages_read += 1
 
-        parse_result = api.get_type_parser(read_result)
+        # Each consumed raw message receives exactly one outcome.
+        try:
+            message = api.get_type_parser(read_result)
+        except Exception:
+            counters["parse_errors"] += 1
+            message = None
 
-        if _is_alternative(parse_result, "ParseError", api):
-            raise RuntimeError(
-                f"ITCH parse error at feed message {messages_read:,}: "
-                f"{parse_result!r}"
-            )
-
-        message = parse_result
-        timestamp = getattr(message, "timestamp", None)
-        mapped = mapper.map(message)
-
-        if _is_alternative(mapped, "ReplayError", api):
-            ignored = getattr(api.ReplayError, "IgnoredMessage", object())
-
-            if mapped != ignored:
-                raise RuntimeError(
-                    f"ITCH mapping error at feed message {messages_read:,}: "
-                    f"{mapped!r}"
-                )
+        if message is None:
+            pass
+        elif _is_alternative(message, "ParseError", api):
+            counters["parse_errors"] += 1
         else:
-            apply_result = replay.apply(mapped)
+            timestamp = getattr(message, "timestamp", None)
+            message_locate = getattr(message, "stock_locate", None)
 
-            if apply_result is not None:
-                raise RuntimeError(
-                    f"ITCH replay error at feed message {messages_read:,}: "
-                    f"{apply_result!r}"
-                )
+            try:
+                mapped = mapper.map(message)
+            except Exception:
+                counters["mapping_errors"] += 1
+                mapped = None
 
-            # Count only successfully applied operations for the selected stock.
-            applied_operations += 1
-            last_applied_timestamp = timestamp
-            last_applied_message = messages_read
+            if mapped is None:
+                # Mapping exceptions were already counted above.
+                pass
+            elif _is_alternative(mapped, "ReplayError", api):
+                ignored = getattr(api.ReplayError, "IgnoredMessage", None)
 
-            if applied_operations % snapshot_interval == 0:
-                latest_snapshot = _capture_snapshot(
-                    order_book,
-                    timestamp,
-                    messages_read,
-                    levels_per_side,
-                )
-                retained.add(latest_snapshot)
-                last_snapshot_operation = applied_operations
+                if ignored is not None and mapped == ignored:
+                    if (
+                        message_locate is not None
+                        and int(message_locate) != int(stock_locate)
+                    ):
+                        counters["ignored_different_stock_locate"] += 1
+                    else:
+                        # Selected-stock metadata, unsupported messages, and
+                        # messages without a stock locate do not change the book.
+                        counters["non_applied_messages"] += 1
+                else:
+                    counters["mapping_errors"] += 1
+            else:
+                try:
+                    apply_result = replay.apply(mapped)
+                except Exception:
+                    counters["failed_applications"] += 1
+                else:
+                    # In this binding, successful std::monostate becomes None.
+                    if apply_result is not None:
+                        counters["failed_applications"] += 1
+                    else:
+                        counters["applied_messages"] += 1
+                        applied_operations += 1
+                        last_applied_timestamp = timestamp
+                        last_applied_message = messages_read
 
-        if (
-            progress_callback is not None
-            and messages_read % progress_every == 0
-        ):
-            percent = (
-                68
-                if max_messages is None
-                else min(
+                        if applied_operations % snapshot_interval == 0:
+                            latest_snapshot = _capture_snapshot(
+                                order_book,
+                                timestamp,
+                                messages_read,
+                                levels_per_side,
+                            )
+                            retained.add(latest_snapshot)
+                            last_snapshot_operation = applied_operations
+
+        if messages_read % progress_every == 0:
+            if max_messages is None:
+                percent = 68
+            else:
+                percent = min(
                     87,
-                    68 + int(19 * messages_read / max_messages),
+                    8 + int(79 * messages_read / max_messages),
                 )
-            )
-
-            progress_callback(
-                messages_read,
-                max_messages,
-                retained.seen,
-                percent,
-            )
+            report_progress(percent)
 
     if messages_read == 0:
         raise RuntimeError(
             "The ITCH reader returned no messages; verify the source file and format."
         )
 
-    # Preserve the final book state if operations remain after the last interval.
+    # Preserve the final book state if successful operations remain after
+    # the last scheduled interval.
     if applied_operations > last_snapshot_operation:
         latest_snapshot = _capture_snapshot(
             order_book,
@@ -317,13 +357,12 @@ def run_bounded_itch_replay(
         retained.add(latest_snapshot)
 
     result = retained.finish(latest_snapshot)
+    report_progress(88)
 
-    if progress_callback is not None:
-        progress_callback(
-            messages_read,
-            max_messages,
-            retained.seen,
-            88,
+    if sum(counters.values()) != messages_read:
+        raise RuntimeError(
+            "Internal accounting error: consumed ITCH messages do not match "
+            "the sum of their outcome counters."
         )
 
     return result, retained.seen, messages_read
