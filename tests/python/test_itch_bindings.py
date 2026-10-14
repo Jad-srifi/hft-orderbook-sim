@@ -16,7 +16,6 @@ ITCH_FILE = (
     / "data"
     / "itch"
     / "2019-10-18"
-    / "raw"
     / "decompressed"
     / "S101819-v50.txt"
 )
