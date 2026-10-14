@@ -52,4 +52,4 @@ A faster profile that violates a state invariant is not a valid optimization.
 
 The project notes identify hotspots; they do not establish that the implementation achieves sub-microsecond end-to-end latency, zero allocation, lock-free operation, exchange-grade throughput, or “zero-copy” integration. Do not add any of those claims to documentation unless the actual relevant path supports the claim and a reproducible measurement is retained.
 
-The historical ITCH full-file measurement of about 755,622 messages/second is described separately in [Benchmarks](BENCHMARK.md). It measures end-to-end historical ingestion/replay for one environment, not a universal engine throughput figure.
+The historical ITCH full-file measurement of about 755,622 messages/second is described separately in [Benchmarks](benchmark.md). It measures end-to-end historical ingestion/replay for one environment, not a universal engine throughput figure.
