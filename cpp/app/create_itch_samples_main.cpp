@@ -838,9 +838,6 @@ namespace
         return std::visit(
             [](const auto &msg)
             {
-                using T =
-                    std::decay_t<decltype(msg)>;
-
                 return static_cast<StockLocate>(
                     msg.stock_locate);
             },
