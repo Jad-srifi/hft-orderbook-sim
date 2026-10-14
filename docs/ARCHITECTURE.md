@@ -146,5 +146,5 @@ The test runner builds and invokes the native test executables and runs `pytest`
 - [Data and ITCH replay](DATA.md)
 - [Benchmarks](BENCHMARK.md)
 - [Profiling](PROFILING.md)
-- [Documentation index](../README.md)
+- [Documentation index](README.md)
 - [Project README](../README.md)
