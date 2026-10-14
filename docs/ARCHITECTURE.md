@@ -139,7 +139,7 @@ The test runner builds and invokes the native test executables and runs `pytest`
 - Do not commit large raw ITCH feeds or generated result trees unless their provenance, size, redistribution rights, and intended use have been reviewed.
 - Treat uploaded files and generated artifacts as untrusted input. Keep the dashboard local and respect its size/workload bounds.
 - Do not claim that `pybind11` alone proves “zero-copy” behavior. Make performance claims only when the relevant code path and benchmark establish them.
-- The root `LICENSE` is authoritative. The public `main` branch checked on 2026-10-14 still contained an MIT license. If moving to PolyForm Noncommercial 1.0.0, replace the root license and synchronize the README and GitHub license metadata before describing that restriction as active. Commercial terms/pricing require a separate written agreement; a future license change does not automatically revoke permissions already granted for old MIT-licensed copies.
+- The root `LICENSE` is authoritative and currently contains the PolyForm Noncommercial License 1.0.0; the README badge and license summary should remain synchronized with that file. This license is not OSI-approved open source. Do not describe commercial use as permitted without separate written permission, and do not imply that this change retroactively removes rights granted under earlier license versions.
 
 ## Related documents
 
