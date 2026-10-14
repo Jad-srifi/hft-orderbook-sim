@@ -1,6 +1,6 @@
 # Flask backend
 
-Run from repository root with `python -m webapp.app`. See `../README_CHAPTER13.md` for installation, API surface, data formats, configuration limits and the local security boundary.
+Run from repository root with `python -m webapp.app`. See `../docs/STATIC_DASHBOARD.md` for installation, API surface, data formats, configuration limits and the local security boundary.
 
 Application factory: `create_app()` in `webapp/__init__.py`.
 Route registration: `webapp/routes.py`.
@@ -8,7 +8,7 @@ Validation and run storage: `webapp/services/file_service.py` and `run_store.py`
 Analysis/replay serialization: `analysis_service.py` and `replay_service.py`.
 Existing Matplotlib discovery and safe artifact listing: `plot_service.py`.
 
-Large ITCH inputs should be selected via the Project-local inputs list (files beneath `data/` or `results/`), not uploaded. The browser upload endpoint has a configurable default cap of 512 MB; local-file runs read the source in place and keep run outputs separate.
+Large ITCH inputs should be selected via the project-local inputs list (files beneath `data/` or `results/`), not uploaded. The browser upload endpoint has a configurable default cap of 512 MB; local-file runs read the source in place and keep run outputs separate. See [the dashboard guide](../docs/STATIC_DASHBOARD.md) for supported inputs, launch instructions, routes, and security boundaries.
 
 
 ### If the legacy research workflow imports `pytest`
