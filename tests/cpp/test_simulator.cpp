@@ -11,7 +11,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -45,7 +45,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event add{};
         add.type = EventType::ADD;
@@ -75,7 +75,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event add{};
         add.type = EventType::ADD;
@@ -112,7 +112,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event add1{};
         add1.type = EventType::ADD;
@@ -148,7 +148,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event cancel{};
         cancel.type = EventType::CANCEL;
@@ -169,7 +169,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event modify{};
         modify.type = EventType::MODIFY;
@@ -192,7 +192,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -224,7 +224,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -264,7 +264,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -296,7 +296,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -321,7 +321,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event event1{};
         event1.type = EventType::ADD;
@@ -353,7 +353,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event sell{};
         sell.type = EventType::ADD;
@@ -386,7 +386,7 @@ int main() {
     // ============================================================
 
     {
-        Simulator simulator;
+        Simulator simulator(1000000.0);
 
         Event add1{};
         add1.type = EventType::ADD;
