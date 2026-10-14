@@ -37,7 +37,7 @@ This repository combines:
 - A **deterministic event-driven simulator** for hypothetical order events.
 - Read-only market-microstructure metrics, execution/slippage analysis, and inventory/cash/P&L accounting.
 - A **Nasdaq TotalView-ITCH 5.0** binary parser, mapper, and replay path that reconstructs the displayed book from historical messages.
-- A **pybind11 extension** (`lob_cpp`) and Python research workflows for extracting observations, generating features, summarizing results, and plotting.
+- A **pybind11 extension** (`lob_cpp`) and Python research workflows for extracting observations, generating features, summarizing results, and plotting. The current STL bindings convert containers into Python objects; zero-copy transfer is **not** claimed or demonstrated.
 - A **local Flask dashboard** for file-based research runs, status/progress, snapshots, heatmap data, plots, and downloadable artifacts.
 - C++ and Python tests, example programs, and benchmark/profiling tools.
 
@@ -92,15 +92,6 @@ The images below are illustrative project media, not performance evidence. Treat
       </a>
       <strong>3. Research outputs</strong>
       <p>Replace with genuine analysis plots and output artifacts.</p>
-    </td>
-    <td width="50%" valign="top">
-      <a href="https://youtu.be/rBas32Tus-Y">
-        <img src="https://img.youtube.com/vi/rBas32Tus-Y/hqdefault.jpg"
-             alt="Watch the simulator walkthrough on YouTube"
-             width="100%">
-      </a>
-      <strong>4. Watch the project walkthrough</strong>
-      <p>Click the thumbnail to watch the project walkthrough on YouTube.</p>
     </td>
   </tr>
 </table>
@@ -404,7 +395,6 @@ Read the numbers correctly:
 The example's defaults expect the historical file at one of these locations, checked in order:
 
 ```text
-data/itch/2019-10-18/decompressed/S101819-v50.txt
 data/itch/2019-10-18/decompressed/S101819-v50.txt
 data/itch/2019-10-18/raw/S101819-v50.txt.gz
 ```
