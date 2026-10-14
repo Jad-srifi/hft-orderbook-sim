@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_DIR = PROJECT_ROOT / "python"
 
@@ -19,11 +17,6 @@ ITCH_FILE = (
     / "raw"
     / "decompressed"
     / "S101819-v50.txt"
-)
-
-pytestmark = pytest.mark.skipif(
-    not ITCH_FILE.exists(),
-    reason="Local decompressed ITCH dataset is not available",
 )
 
 
