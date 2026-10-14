@@ -3,11 +3,6 @@
 #include <metrics.hpp>
 #include <profile.hpp>
 
-Simulator::Simulator()
-    : inventory_model(0.0)
-{
-}
-
 Simulator::Simulator(Cash initial_cash)
     : inventory_model(initial_cash)
 {
