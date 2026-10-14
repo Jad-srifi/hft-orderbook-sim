@@ -239,6 +239,20 @@ The current implementation uses JSON because it is human-readable, portable, and
 
 ## Example
 
+The example imports `experiment` from `python/experiment.py`. From the repository root, make the `python/` directory importable before running it. In MSYS2 Bash:
+
+```bash
+export PYTHONPATH="$PWD/python${PYTHONPATH:+:$PYTHONPATH}"
+```
+
+In PowerShell:
+
+```powershell
+$env:PYTHONPATH = "$PWD\python"
+```
+
+Then run:
+
 ```python
 from experiment import Experiment
 
@@ -255,7 +269,7 @@ experiment.set_result("mean_return", 0.0004)
 experiment.save("results/imbalance_prediction.json")
 ```
 
-The resulting file provides a reproducible record of the experiment.
+The resulting file preserves the configuration and results explicitly recorded in the object. It does **not** automatically capture the source commit, environment/dependency versions, dataset checksum, random seeds, or research procedure. Record any such details needed for reproduction in `metadata`; saving an experiment object alone does not guarantee full reproducibility.
 
 ## Scope
 
