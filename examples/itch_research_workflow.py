@@ -25,7 +25,6 @@ from itch_directory import print_stock_directory
 
 DEFAULT_ITCH_CANDIDATES = (
     ROOT / "data" / "itch" / "2019-10-18" / "decompressed" / "S101819-v50.txt",
-    ROOT / "data" / "itch" / "2019-10-18" / "raw" / "S101819-v50.txt.gz",
 )
 
 DEFAULT_OUTPUT_DIR = ROOT / "results" / "itch_research_demo"
@@ -34,6 +33,12 @@ DEFAULT_OUTPUT_DIR = ROOT / "results" / "itch_research_demo"
 def resolve_itch_file(value: str | Path | None) -> Path:
     if value is not None:
         supplied = Path(value).expanduser()
+
+        if supplied.suffix.lower() == ".gz":
+            raise ValueError(
+                "Compressed .gz ITCH files are not supported by the current reader. "
+                "Decompress the file first and pass the resulting binary .txt path."
+            )
 
         candidates = (
             supplied,
