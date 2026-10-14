@@ -15,6 +15,7 @@ dependencies = []
 [tool.pytest.ini_options]
 testpaths = [
     "tests/python",
+    "tests/dashboard",
 ]
 python_files = [
     "test_*.py",
