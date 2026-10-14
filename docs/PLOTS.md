@@ -51,12 +51,12 @@ The architectural responsibilities are:
 | Component              | Responsibility                                                             |
 | ---------------------- | -------------------------------------------------------------------------- |
 | C++ core               | Authoritative order-book, matching, execution, inventory, and replay logic |
-| `historical_replay.py` | High-level historical ITCH replay interface                                |
-| `observations.py`      | Creates immutable Python-owned book snapshots                              |
-| `datasets.py`          | Stores ordered book snapshots                                              |
-| `research/`            | Calculates features, statistics, and research measurements                 |
-| `plots/`               | Visualizes snapshots and already-calculated measurements                   |
-| `play.py`              | Intended entry point for the future browser-based replay application       |
+| `python/backtests/historical_replay.py` | High-level historical ITCH replay and snapshot collection |
+| `python/observations.py` | Creates immutable Python-owned book snapshots |
+| `python/datasets.py` | Stores ordered book snapshots |
+| `python/research/` | Calculates features, statistics, and research measurements |
+| `python/plots/` | Visualizes snapshots and already-calculated measurements |
+| `webapp/` | Separate Flask dashboard, including the browser replay interface |
 
 The plotting modules should not modify the source snapshots or market state.
 
@@ -482,21 +482,15 @@ Snapshots should remain in original stream order. They should not be reordered m
 
 ## 15. Dependencies
 
-The plotting package uses Matplotlib for static research charts.
+The Python plotting modules use Matplotlib to create static figures. The current Flask dashboard declares Flask and Matplotlib in `webapp/requirements.txt`; the browser replay interface uses the repository's HTML, CSS, and JavaScript rather than Plotly.
 
-The planned browser-based application additionally uses Plotly for interactive charts and Flask for serving the local application.
+Install the dashboard's declared dependencies from the repository root:
 
-The principal dependencies are:
-
-```text
-matplotlib
-plotly
-flask
+```bash
+python -m pip install -r webapp/requirements.txt
 ```
 
-Matplotlib provides figure creation and axes. Plotly provides browser-oriented interactive charts. Flask is intended to provide the local web application layer.
-
-The browser application is a separate layer built on top of the plotting and replay utilities.
+The root `pyproject.toml` currently declares no runtime dependencies. If you use `python/plots/` outside the dashboard environment, ensure Matplotlib is installed. The browser dashboard and the Python plotting package are separate layers.
 
 ## 16. Testing
 
@@ -533,11 +527,9 @@ A successful plot test indicates that the functions can construct their figures 
 
 ## 17. Current Scope and Limitations
 
-The current plotting modules provide static chart construction and a basic snapshot replay controller.
+The Python plotting modules provide static chart construction and a basic snapshot replay controller. The repository separately includes a current Flask dashboard under `webapp/`; its `/replay` page provides browser playback of a bounded, server-generated snapshot sequence. The Python `ReplayPlayer` and the browser replay page are different implementations and should not be conflated.
 
-They do not yet provide a complete browser-based replay experience.
-
-The intended future workflow is:
+The current end-to-end browser workflow is:
 
 ```text
 Load ITCH file
@@ -579,7 +571,7 @@ The actual replay-sampling behavior must be explicitly defined and tested. Messa
 
 ## 18. Design Goal
 
-The long-term goal of `plots/` is to let users inspect market state and research outputs without putting visualization logic into the C++ engine or duplicating calculations from the research modules.
+The goal of `python/plots/` is to let users inspect market state and research outputs without putting visualization logic into the C++ engine or duplicating calculations from the research modules. The separate Flask dashboard in `webapp/` provides the browser-based interface.
 
 The intended direction is:
 
@@ -602,4 +594,4 @@ Plotting and Playback
 Interactive Research Dashboard
 ```
 
-The plotting package should remain modular, testable, and separate from market mechanics. This keeps the current static charts reusable while providing a clean foundation for the future local browser-based market-replay application.
+The plotting package should remain modular, testable, and separate from market mechanics. This keeps the current static charts reusable while remaining reusable by the current local browser-based research dashboard.
