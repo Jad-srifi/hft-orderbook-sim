@@ -17,8 +17,8 @@ BenchmarkResult run_benchmark(const BenchmarkName name, const std::function<void
     std::vector<BenchmarkDuration> durations;
     durations.reserve(config.measured_run_count);
 
-    BenchmarkDuration max_duration;
-    BenchmarkDuration min_duration;
+    BenchmarkDuration max_duration{0};
+    BenchmarkDuration min_duration{0};
     BenchmarkDuration total_duration{0};
 
     for (size_t i = 0; i < config.measured_run_count; i++)
