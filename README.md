@@ -93,6 +93,15 @@ The images below are illustrative project media, not performance evidence. Treat
       <strong>3. Research outputs</strong>
       <p>Replace with genuine analysis plots and output artifacts.</p>
     </td>
+    <td width="50%" valign="top">
+      <a href="https://youtu.be/rBas32Tus-Y">
+        <img src="https://img.youtube.com/vi/rBas32Tus-Y/hqdefault.jpg"
+             alt="Watch the simulator walkthrough on YouTube"
+             width="100%">
+      </a>
+      <strong>4. Watch the project walkthrough</strong>
+      <p>Click the thumbnail to watch the project walkthrough on YouTube.</p>
+    </td>
   </tr>
 </table>
 
